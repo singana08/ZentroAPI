@@ -1,0 +1,121 @@
+using HaluluAPI.DTOs;
+using HaluluAPI.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HaluluAPI.Controllers;
+
+/// <summary>
+/// Controller for managing service categories and subcategories
+/// </summary>
+[ApiController]
+[Route("api/[controller]")]
+[Produces("application/json")]
+public class CategoryController : ControllerBase
+{
+    private readonly ICategoryService _categoryService;
+    private readonly ILogger<CategoryController> _logger;
+
+    public CategoryController(
+        ICategoryService categoryService,
+        ILogger<CategoryController> logger)
+    {
+        _categoryService = categoryService;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Retrieves all categories with their active subcategories, ordered by name
+    /// </summary>
+    /// <remarks>
+    /// Returns a hierarchical structure with each category containing only its active subcategories.
+    /// Both categories and subcategories are ordered alphabetically by name.
+    /// </remarks>
+    /// <returns>List of categories with associated active subcategories</returns>
+    [HttpGet("with-subcategories")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(CategoryApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetCategoriesWithSubcategories()
+    {
+        try
+        {
+            _logger.LogInformation("Fetching all categories with active subcategories");
+
+            var categories = await _categoryService.GetAllCategoriesWithSubcategoriesAsync();
+
+            var response = new CategoryApiResponse
+            {
+                Success = true,
+                Message = $"Successfully retrieved {categories.Count} categories",
+                Data = categories
+            };
+
+            _logger.LogInformation("Successfully retrieved {CategoryCount} categories with subcategories", 
+                categories.Count);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving categories with subcategories");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+            {
+                Message = "An error occurred while retrieving categories"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Retrieves a specific category with its active subcategories
+    /// </summary>
+    /// <remarks>
+    /// Returns a single category with all its active subcategories ordered by name.
+    /// </remarks>
+    /// <param name="categoryId">The ID of the category to retrieve</param>
+    /// <returns>Category with associated active subcategories</returns>
+    [HttpGet("{categoryId}/with-subcategories")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(CategoryWithSubcategoriesDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetCategoryWithSubcategories(int categoryId)
+    {
+        try
+        {
+            if (categoryId <= 0)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Message = "Category ID must be greater than 0"
+                });
+            }
+
+            _logger.LogInformation("Fetching category {CategoryId} with active subcategories", categoryId);
+
+            var category = await _categoryService.GetCategoryWithSubcategoriesAsync(categoryId);
+
+            if (category == null)
+            {
+                _logger.LogWarning("Category {CategoryId} not found", categoryId);
+                return NotFound(new ErrorResponse
+                {
+                    Message = $"Category with ID {categoryId} not found"
+                });
+            }
+
+            _logger.LogInformation("Successfully retrieved category {CategoryId} with {SubcategoryCount} subcategories", 
+                categoryId, category.Subcategories.Count);
+
+            return Ok(category);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving category {CategoryId} with subcategories", categoryId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+            {
+                Message = "An error occurred while retrieving the category"
+            });
+        }
+    }
+}
