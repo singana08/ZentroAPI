@@ -1,0 +1,56 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace HaluluAPI.Migrations
+{
+    /// <inheritdoc />
+    public partial class UpdateServiceRequestToUseRequesterId : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_service_requests_users_UserId1",
+                schema: "halulu_api",
+                table: "service_requests");
+
+            migrationBuilder.DropIndex(
+                name: "IX_service_requests_UserId1",
+                schema: "halulu_api",
+                table: "service_requests");
+
+            migrationBuilder.DropColumn(
+                name: "UserId1",
+                schema: "halulu_api",
+                table: "service_requests");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<Guid>(
+                name: "UserId1",
+                schema: "halulu_api",
+                table: "service_requests",
+                type: "uuid",
+                nullable: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_service_requests_UserId1",
+                schema: "halulu_api",
+                table: "service_requests",
+                column: "UserId1");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_service_requests_users_UserId1",
+                schema: "halulu_api",
+                table: "service_requests",
+                column: "UserId1",
+                principalSchema: "halulu_api",
+                principalTable: "users",
+                principalColumn: "Id");
+        }
+    }
+}

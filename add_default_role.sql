@@ -1,0 +1,1 @@
+ALTER TABLE halulu_api.users ADD COLUMN "DefaultRole" varchar(20) NOT NULL DEFAULT 'REQUESTER';
