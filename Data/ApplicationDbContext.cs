@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Subcategory> Subcategories => Set<Subcategory>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<Address> Addresses => Set<Address>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -175,5 +176,25 @@ public class ApplicationDbContext : DbContext
             .WithMany(r => r.ServiceRequests)
             .HasForeignKey(sr => sr.RequesterId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Address configuration
+        modelBuilder.Entity<Address>(entity =>
+        {
+            entity.ToTable("addresses");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ProfileId).IsRequired();
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Latitude).IsRequired();
+            entity.Property(e => e.Longitude).IsRequired();
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.State).HasMaxLength(100);
+            entity.Property(e => e.PostalCode).HasMaxLength(20);
+            entity.Property(e => e.IsPrimary).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.ProfileId);
+            entity.HasIndex(e => new { e.ProfileId, e.IsPrimary });
+        });
     }
 }

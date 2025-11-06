@@ -11,20 +11,8 @@ namespace HaluluAPI.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_service_requests_users_UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
-
-            migrationBuilder.DropIndex(
-                name: "IX_service_requests_UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
-
-            migrationBuilder.DropColumn(
-                name: "UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
+            // This migration is redundant as the previous one already handled these drops
+            // Just ensure they don't exist
         }
 
         /// <inheritdoc />
