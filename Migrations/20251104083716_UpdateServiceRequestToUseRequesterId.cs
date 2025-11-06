@@ -11,20 +11,42 @@ namespace HaluluAPI.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_service_requests_users_UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
+            // Check if constraint exists before dropping
+            migrationBuilder.Sql(@"
+                DO $$ 
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.table_constraints 
+                              WHERE constraint_name = 'FK_service_requests_users_UserId1' 
+                              AND table_schema = 'halulu_api') THEN
+                        ALTER TABLE halulu_api.service_requests DROP CONSTRAINT ""FK_service_requests_users_UserId1"";
+                    END IF;
+                END $$;
+            ");
 
-            migrationBuilder.DropIndex(
-                name: "IX_service_requests_UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
+            // Check if index exists before dropping
+            migrationBuilder.Sql(@"
+                DO $$ 
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM pg_indexes 
+                              WHERE indexname = 'IX_service_requests_UserId1' 
+                              AND schemaname = 'halulu_api') THEN
+                        DROP INDEX halulu_api.""IX_service_requests_UserId1"";
+                    END IF;
+                END $$;
+            ");
 
-            migrationBuilder.DropColumn(
-                name: "UserId1",
-                schema: "halulu_api",
-                table: "service_requests");
+            // Check if column exists before dropping
+            migrationBuilder.Sql(@"
+                DO $$ 
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name = 'service_requests' 
+                              AND column_name = 'UserId1' 
+                              AND table_schema = 'halulu_api') THEN
+                        ALTER TABLE halulu_api.service_requests DROP COLUMN ""UserId1"";
+                    END IF;
+                END $$;
+            ");
         }
 
         /// <inheritdoc />
