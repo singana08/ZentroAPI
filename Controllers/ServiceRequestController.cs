@@ -3,6 +3,8 @@ using HaluluAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using HaluluAPI.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace HaluluAPI.Controllers;
 
@@ -16,13 +18,19 @@ namespace HaluluAPI.Controllers;
 public class ServiceRequestController : ControllerBase
 {
     private readonly IServiceRequestService _serviceRequestService;
+    private readonly INotificationService _notificationService;
+    private readonly ApplicationDbContext _context;
     private readonly ILogger<ServiceRequestController> _logger;
 
     public ServiceRequestController(
         IServiceRequestService serviceRequestService,
+        INotificationService notificationService,
+        ApplicationDbContext context,
         ILogger<ServiceRequestController> logger)
     {
         _serviceRequestService = serviceRequestService;
+        _notificationService = notificationService;
+        _context = context;
         _logger = logger;
     }
 
@@ -76,6 +84,44 @@ public class ServiceRequestController : ControllerBase
                     Message = message
                 });
             }
+
+            // Create notifications (don't block on failure)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Notify requester (current profile)
+                    await _notificationService.CreateNotificationAsync(
+                        profileId,
+                        "Service Request Created",
+                        $"Your {data!.SubCategory} request has been submitted successfully",
+                        "service_request_created",
+                        data.Id,
+                        new { serviceRequestId = data.Id, category = data.MainCategory, subCategory = data.SubCategory }
+                    );
+
+                    // Notify all provider profiles
+                    var providerProfiles = await _context.Providers
+                        .Where(p => p.IsActive)
+                        .ToListAsync();
+                    
+                    foreach (var provider in providerProfiles)
+                    {
+                        await _notificationService.CreateNotificationAsync(
+                            provider.Id,
+                            "New Service Request Available",
+                            $"{data.SubCategory} service needed in {data.Location}",
+                            "new_service_request",
+                            data.Id,
+                            new { serviceRequestId = data.Id, category = data.MainCategory, subCategory = data.SubCategory, location = data.Location }
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Failed to create notifications for service request {data?.Id}");
+                }
+            });
 
             return CreatedAtAction(
                 nameof(GetServiceRequest),

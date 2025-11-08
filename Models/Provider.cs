@@ -60,6 +60,11 @@ public class Provider
     [Column(TypeName = "numeric(18,2)")]
     public decimal Earnings { get; set; } = 0;
 
+    [StringLength(200)]
+    public string? PushToken { get; set; }
+
+    public bool NotificationsEnabled { get; set; } = true;
+
     [Required]
     public bool IsActive { get; set; } = true;
 
