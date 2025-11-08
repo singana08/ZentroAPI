@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Subcategory> Subcategories => Set<Subcategory>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,7 +53,8 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.UserId).IsRequired();
-
+            entity.Property(e => e.PushToken).HasMaxLength(200);
+            entity.Property(e => e.NotificationsEnabled).HasDefaultValue(true);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).IsRequired();
             
@@ -80,6 +82,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PricingModel).HasMaxLength(100);
             entity.Property(e => e.Rating).HasDefaultValue(0);
             entity.Property(e => e.Earnings).HasDefaultValue(0);
+            entity.Property(e => e.PushToken).HasMaxLength(200);
+            entity.Property(e => e.NotificationsEnabled).HasDefaultValue(true);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).IsRequired();
             
@@ -195,6 +199,22 @@ public class ApplicationDbContext : DbContext
             
             entity.HasIndex(e => e.ProfileId);
             entity.HasIndex(e => new { e.ProfileId, e.IsPrimary });
+        });
+
+        // Notification configuration
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ProfileId).IsRequired();
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Body).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.NotificationType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsRead).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => new { e.ProfileId, e.CreatedAt });
+            entity.HasIndex(e => new { e.ProfileId, e.IsRead });
         });
     }
 }

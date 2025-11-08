@@ -20,6 +20,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddHttpClient<NotificationService>();
 
 // Add logging
 builder.Services.AddLogging(config =>
@@ -150,15 +153,18 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Configure Kestrel to listen on IPv4 for Docker compatibility
-// Only force port 8000 in non-Development environments (Docker, Production)
-if (!builder.Environment.IsDevelopment())
+// Configure Kestrel to listen on specific ports
+builder.WebHost.ConfigureKestrel(options =>
 {
-    builder.WebHost.ConfigureKestrel(options =>
+    if (builder.Environment.IsDevelopment())
     {
-        options.ListenAnyIP(8000); // Listen on all IPv4 addresses on port 8000
-    });
-}
+        options.ListenAnyIP(3001); // Development port
+    }
+    else
+    {
+        options.ListenAnyIP(8000); // Production port
+    }
+});
 
 // Build the app
 var app = builder.Build();

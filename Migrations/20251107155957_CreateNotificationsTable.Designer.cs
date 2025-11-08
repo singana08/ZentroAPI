@@ -3,6 +3,7 @@ using System;
 using HaluluAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HaluluAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251107155957_CreateNotificationsTable")]
+    partial class CreateNotificationsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,9 +148,6 @@ namespace HaluluAPI.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("RelatedEntityId")
                         .HasColumnType("uuid");
 
@@ -156,11 +156,14 @@ namespace HaluluAPI.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("ProfileId", "CreatedAt");
+                    b.HasIndex("UserId", "CreatedAt");
 
-                    b.HasIndex("ProfileId", "IsRead");
+                    b.HasIndex("UserId", "IsRead");
 
                     b.ToTable("notifications", "halulu_api");
                 });
@@ -250,18 +253,9 @@ namespace HaluluAPI.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
-                    b.Property<bool>("NotificationsEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
                     b.Property<string>("PricingModel")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<string>("PushToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<decimal>("Rating")
                         .ValueGeneratedOnAdd()
@@ -304,15 +298,6 @@ namespace HaluluAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
-
-                    b.Property<bool>("NotificationsEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("PushToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -480,6 +465,11 @@ namespace HaluluAPI.Migrations
                     b.Property<bool>("IsProfileCompleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("NotificationsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -488,6 +478,10 @@ namespace HaluluAPI.Migrations
                     b.Property<string>("ProfileImage")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PushToken")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -502,6 +496,17 @@ namespace HaluluAPI.Migrations
                         .HasFilter("\"PhoneNumber\" IS NOT NULL AND \"PhoneNumber\" != ''");
 
                     b.ToTable("users", "halulu_api");
+                });
+
+            modelBuilder.Entity("HaluluAPI.Models.Notification", b =>
+                {
+                    b.HasOne("HaluluAPI.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("HaluluAPI.Models.OtpRecord", b =>

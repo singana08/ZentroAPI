@@ -331,41 +331,7 @@ public class AuthController : ControllerBase
         });
     }
 
-    /// <summary>
-    /// Get user profile data based on profile ID from token
-    /// </summary>
-    [HttpGet("profile")]
-    [Authorize]
-    public async Task<IActionResult> GetProfile()
-    {
-        try
-        {
-            _logger.LogInformation("GetProfile endpoint called");
-            
-            var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            _logger.LogInformation($"Profile ID from token: {profileId}");
-            
-            if (string.IsNullOrEmpty(profileId))
-            {
-                _logger.LogWarning("Profile ID not found in token");
-                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
-            }
 
-            var profile = await _authService.GetUserProfileAsync(profileId);
-            if (profile == null)
-            {
-                _logger.LogWarning($"Profile not found for ID: {profileId}");
-                return NotFound(new ErrorResponse { Message = "Profile not found" });
-            }
-
-            return Ok(profile);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in GetProfile endpoint");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
 
     /// <summary>
     /// Switch to different role and get new token

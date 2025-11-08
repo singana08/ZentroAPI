@@ -18,6 +18,11 @@ public class Requester
 
 
 
+    [StringLength(200)]
+    public string? PushToken { get; set; }
+
+    public bool NotificationsEnabled { get; set; } = true;
+
     [Required]
     public bool IsActive { get; set; } = true;
 

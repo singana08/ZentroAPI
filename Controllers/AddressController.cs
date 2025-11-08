@@ -2,7 +2,6 @@ using HaluluAPI.DTOs;
 using HaluluAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace HaluluAPI.Controllers;
 
@@ -12,11 +11,13 @@ namespace HaluluAPI.Controllers;
 public class AddressController : ControllerBase
 {
     private readonly IAddressService _addressService;
+    private readonly ITokenService _tokenService;
     private readonly ILogger<AddressController> _logger;
 
-    public AddressController(IAddressService addressService, ILogger<AddressController> logger)
+    public AddressController(IAddressService addressService, ITokenService tokenService, ILogger<AddressController> logger)
     {
         _addressService = addressService;
+        _tokenService = tokenService;
         _logger = logger;
     }
 
@@ -29,14 +30,14 @@ public class AddressController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateAddress([FromBody] CreateAddressDto request)
     {
-        var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
         {
             return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
         }
 
         // Override ProfileId from token
-        request.ProfileId = profileGuid;
+        request.ProfileId = profileId.Value;
         
         var (success, message, address) = await _addressService.CreateAddressAsync(request);
         
@@ -54,13 +55,13 @@ public class AddressController : ControllerBase
     [ProducesResponseType(typeof(List<AddressResponseDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProfileAddresses()
     {
-        var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
         {
             return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
         }
 
-        var (success, message, addresses) = await _addressService.GetProfileAddressesAsync(profileGuid);
+        var (success, message, addresses) = await _addressService.GetProfileAddressesAsync(profileId.Value);
         
         if (!success)
             return BadRequest(new ErrorResponse { Message = message });
@@ -77,8 +78,8 @@ public class AddressController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAddressById(Guid id)
     {
-        var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
         {
             return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
         }
@@ -89,7 +90,7 @@ public class AddressController : ControllerBase
             return NotFound(new ErrorResponse { Message = message });
 
         // Verify address belongs to current profile
-        if (address!.ProfileId != profileGuid)
+        if (address!.ProfileId != profileId.Value)
             return NotFound(new ErrorResponse { Message = "Address not found" });
 
         return Ok(address);
@@ -104,15 +105,15 @@ public class AddressController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateAddress(Guid id, [FromBody] UpdateAddressDto request)
     {
-        var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
         {
             return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
         }
 
         // First check if address exists and belongs to current profile
         var (existsSuccess, _, existingAddress) = await _addressService.GetAddressByIdAsync(id);
-        if (!existsSuccess || existingAddress!.ProfileId != profileGuid)
+        if (!existsSuccess || existingAddress!.ProfileId != profileId.Value)
             return NotFound(new ErrorResponse { Message = "Address not found" });
 
         var (success, message, address) = await _addressService.UpdateAddressAsync(id, request);
@@ -132,15 +133,15 @@ public class AddressController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAddress(Guid id)
     {
-        var profileId = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
         {
             return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
         }
 
         // First check if address exists and belongs to current profile
         var (existsSuccess, _, existingAddress) = await _addressService.GetAddressByIdAsync(id);
-        if (!existsSuccess || existingAddress!.ProfileId != profileGuid)
+        if (!existsSuccess || existingAddress!.ProfileId != profileId.Value)
             return NotFound(new ErrorResponse { Message = "Address not found" });
 
         var (success, message) = await _addressService.DeleteAddressAsync(id);
