@@ -17,8 +17,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Subcategory> Subcategories => Set<Subcategory>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<Quote> Quotes => Set<Quote>();
+    public DbSet<Message> Messages => Set<Message>();
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<HiddenRequest> HiddenRequests => Set<HiddenRequest>();
+    public DbSet<ProviderRequestStatus> ProviderRequestStatuses => Set<ProviderRequestStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,24 +166,34 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Location).IsRequired().HasMaxLength(500);
             entity.Property(e => e.Time).HasMaxLength(20);
             entity.Property(e => e.Notes).HasMaxLength(1000);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.AdditionalNotes).HasMaxLength(500);
-            entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasDefaultValue(ServiceRequestStatus.Pending);
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasDefaultValue(ServiceRequestStatus.Open);
             entity.Property(e => e.CreatedAt).IsRequired();
             
             // Indexes for common queries
             entity.HasIndex(e => e.RequesterId);
+            entity.HasIndex(e => e.AssignedProviderId);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.BookingType);
             entity.HasIndex(e => new { e.RequesterId, e.Status });
+            entity.HasIndex(e => new { e.AssignedProviderId, e.Status });
             entity.HasIndex(e => e.CreatedAt);
         });
 
-        // ServiceRequest to Requester relationship
+        // ServiceRequest relationships
         modelBuilder.Entity<ServiceRequest>()
             .HasOne(sr => sr.Requester)
             .WithMany(r => r.ServiceRequests)
             .HasForeignKey(sr => sr.RequesterId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ServiceRequest>()
+            .HasOne(sr => sr.AssignedProvider)
+            .WithMany()
+            .HasForeignKey(sr => sr.AssignedProviderId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Address configuration
         modelBuilder.Entity<Address>(entity =>
@@ -201,6 +215,61 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.ProfileId, e.IsPrimary });
         });
 
+        // Quote configuration
+        modelBuilder.Entity<Quote>(entity =>
+        {
+            entity.ToTable("quotes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Message).HasMaxLength(1000);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.RequestId);
+            entity.HasIndex(e => e.ProviderId);
+            entity.HasIndex(e => new { e.RequestId, e.ProviderId }).IsUnique();
+        });
+
+        // Quote relationships
+        modelBuilder.Entity<Quote>()
+            .HasOne(q => q.Provider)
+            .WithMany()
+            .HasForeignKey(q => q.ProviderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Quote>()
+            .HasOne(q => q.ServiceRequest)
+            .WithMany(sr => sr.Quotes)
+            .HasForeignKey(q => q.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Message configuration
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.ToTable("messages");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.SenderId).IsRequired();
+            entity.Property(e => e.ReceiverId).IsRequired();
+            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.MessageText).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Timestamp).IsRequired();
+            entity.Property(e => e.IsRead).HasDefaultValue(false);
+            
+            entity.HasIndex(e => e.RequestId);
+            entity.HasIndex(e => new { e.SenderId, e.ReceiverId });
+            entity.HasIndex(e => e.Timestamp);
+        });
+
+        // Message relationships
+        modelBuilder.Entity<Message>()
+            .HasOne(m => m.ServiceRequest)
+            .WithMany(sr => sr.Messages)
+            .HasForeignKey(m => m.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Notification configuration
         modelBuilder.Entity<Notification>(entity =>
         {
@@ -216,5 +285,65 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.ProfileId, e.CreatedAt });
             entity.HasIndex(e => new { e.ProfileId, e.IsRead });
         });
+
+        // HiddenRequest configuration
+        modelBuilder.Entity<HiddenRequest>(entity =>
+        {
+            entity.ToTable("hidden_requests");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.ServiceRequestId).IsRequired();
+            entity.Property(e => e.HiddenAt).IsRequired();
+            
+            entity.HasIndex(e => new { e.ProviderId, e.ServiceRequestId }).IsUnique();
+            entity.HasIndex(e => e.ProviderId);
+        });
+
+        // HiddenRequest relationships
+        modelBuilder.Entity<HiddenRequest>()
+            .HasOne(hr => hr.Provider)
+            .WithMany()
+            .HasForeignKey(hr => hr.ProviderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HiddenRequest>()
+            .HasOne(hr => hr.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(hr => hr.ServiceRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ProviderRequestStatus configuration
+        modelBuilder.Entity<ProviderRequestStatus>(entity =>
+        {
+            entity.ToTable("provider_request_status");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>();
+            entity.Property(e => e.LastUpdated).IsRequired();
+            
+            entity.HasIndex(e => new { e.ProviderId, e.RequestId }).IsUnique();
+            entity.HasIndex(e => e.ProviderId);
+            entity.HasIndex(e => e.RequestId);
+        });
+
+        // ProviderRequestStatus relationships
+        modelBuilder.Entity<ProviderRequestStatus>()
+            .HasOne(prs => prs.Provider)
+            .WithMany()
+            .HasForeignKey(prs => prs.ProviderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProviderRequestStatus>()
+            .HasOne(prs => prs.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(prs => prs.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProviderRequestStatus>()
+            .HasOne(prs => prs.Quote)
+            .WithMany()
+            .HasForeignKey(prs => prs.QuoteId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

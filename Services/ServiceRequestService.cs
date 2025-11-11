@@ -70,14 +70,14 @@ public class ServiceRequestService : IServiceRequestService
                 MainCategory = request.MainCategory.Trim(),
                 SubCategory = request.SubCategory.Trim(),
                 //Date = DateTime.Parse(request.Date),
-                Date = request.Date.HasValue ? DateTime.SpecifyKind(request.Date.Value, DateTimeKind.Utc) : null,
+                Date = (request.ScheduledDate ?? request.Date).HasValue ? DateTime.SpecifyKind((request.ScheduledDate ?? request.Date).Value, DateTimeKind.Utc) : null,
                 Time = request.Time?.Trim(),
                 Location = request.Location.Trim(),
                 Notes = request.Notes?.Trim(),
+                Title = request.Title?.Trim(),
+                Description = request.Description?.Trim(),
                 AdditionalNotes = request.AdditionalNotes?.Trim(),
-                Status = bookingType == BookingType.get_quote
-                    ? ServiceRequestStatus.QuoteRequested
-                    : ServiceRequestStatus.Pending,
+                Status = ServiceRequestStatus.Open,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -150,18 +150,16 @@ public class ServiceRequestService : IServiceRequestService
             serviceRequest.BookingType = bookingType;
             serviceRequest.MainCategory = request.MainCategory.Trim();
             serviceRequest.SubCategory = request.SubCategory.Trim();
-            serviceRequest.Date = request.Date;
+            serviceRequest.Date = request.ScheduledDate ?? request.Date;
             serviceRequest.Time = request.Time?.Trim();
             serviceRequest.Location = request.Location.Trim();
             serviceRequest.Notes = request.Notes?.Trim();
+            serviceRequest.Title = request.Title?.Trim();
+            serviceRequest.Description = request.Description?.Trim();
             serviceRequest.AdditionalNotes = request.AdditionalNotes?.Trim();
             serviceRequest.UpdatedAt = DateTime.UtcNow;
 
-            // Update status if booking type changed to get_quote
-            if (bookingType == BookingType.get_quote && serviceRequest.Status == ServiceRequestStatus.Pending)
-            {
-                serviceRequest.Status = ServiceRequestStatus.QuoteRequested;
-            }
+            // Status remains as is during updates
 
             _dbContext.ServiceRequests.Update(serviceRequest);
             await _dbContext.SaveChangesAsync();
@@ -446,7 +444,8 @@ public class ServiceRequestService : IServiceRequestService
 
     private static (bool Valid, string Message) ValidateScheduleLater(CreateServiceRequestDto request)
     {
-        if (request.Date == null)
+        var dateValue = request.ScheduledDate ?? request.Date;
+        if (dateValue == null)
         {
             return (false, "Date is required for 'schedule_later' booking type");
         }
@@ -456,7 +455,7 @@ public class ServiceRequestService : IServiceRequestService
             return (false, "Time is required for 'schedule_later' booking type");
         }
 
-        if (request.Date < DateTime.Now.Date.AddDays(1))
+        if (dateValue < DateTime.Now.Date.AddDays(1))
         {
             return (false, "Schedule date must be at least tomorrow");
         }
@@ -483,12 +482,16 @@ public class ServiceRequestService : IServiceRequestService
             BookingType = serviceRequest.BookingType.ToString(),
             MainCategory = serviceRequest.MainCategory,
             SubCategory = serviceRequest.SubCategory,
+            Title = serviceRequest.Title,
+            Description = serviceRequest.Description,
             Date = serviceRequest.Date,
             Time = serviceRequest.Time,
             Location = serviceRequest.Location,
             Notes = serviceRequest.Notes,
             AdditionalNotes = serviceRequest.AdditionalNotes,
-            Status = serviceRequest.Status.ToString(),
+            AssignedProviderId = serviceRequest.AssignedProviderId,
+            RequestStatus = serviceRequest.Status.ToString(),
+            ProviderStatus = null, // Requesters don't see provider status
             CreatedAt = serviceRequest.CreatedAt,
             UpdatedAt = serviceRequest.UpdatedAt
         };

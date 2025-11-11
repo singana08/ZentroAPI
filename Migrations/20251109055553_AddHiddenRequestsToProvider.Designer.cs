@@ -3,6 +3,7 @@ using System;
 using HaluluAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HaluluAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251109055553_AddHiddenRequestsToProvider")]
+    partial class AddHiddenRequestsToProvider
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -114,33 +117,6 @@ namespace HaluluAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("master_category", "halulu_api");
-                });
-
-            modelBuilder.Entity("HaluluAPI.Models.HiddenRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("HiddenAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("ProviderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ServiceRequestId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProviderId");
-
-                    b.HasIndex("ServiceRequestId");
-
-                    b.HasIndex("ProviderId", "ServiceRequestId")
-                        .IsUnique();
-
-                    b.ToTable("hidden_requests", "halulu_api");
                 });
 
             modelBuilder.Entity("HaluluAPI.Models.Message", b =>
@@ -309,6 +285,9 @@ namespace HaluluAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
+
+                    b.Property<string>("HiddenRequestIds")
+                        .HasColumnType("jsonb");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -615,25 +594,6 @@ namespace HaluluAPI.Migrations
                         .HasFilter("\"PhoneNumber\" IS NOT NULL AND \"PhoneNumber\" != ''");
 
                     b.ToTable("users", "halulu_api");
-                });
-
-            modelBuilder.Entity("HaluluAPI.Models.HiddenRequest", b =>
-                {
-                    b.HasOne("HaluluAPI.Models.Provider", "Provider")
-                        .WithMany()
-                        .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("HaluluAPI.Models.ServiceRequest", "ServiceRequest")
-                        .WithMany()
-                        .HasForeignKey("ServiceRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Provider");
-
-                    b.Navigation("ServiceRequest");
                 });
 
             modelBuilder.Entity("HaluluAPI.Models.Message", b =>

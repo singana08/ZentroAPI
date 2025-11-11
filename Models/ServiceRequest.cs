@@ -37,20 +37,34 @@ public class ServiceRequest
     [StringLength(1000)]
     public string? Notes { get; set; }
 
+    [StringLength(200)]
+    public string? Title { get; set; }
+
+    [StringLength(1000)]
+    public string? Description { get; set; }
+
     [StringLength(500)]
     public string? AdditionalNotes { get; set; }
 
+    public Guid? AssignedProviderId { get; set; }
+
     [Required]
-    public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.Pending;
+    public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.Open;
 
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
 
-    // Navigation property
+    // Navigation properties
     [ForeignKey(nameof(RequesterId))]
     public Requester? Requester { get; set; }
+
+    [ForeignKey(nameof(AssignedProviderId))]
+    public Provider? AssignedProvider { get; set; }
+
+    public ICollection<Quote> Quotes { get; set; } = new List<Quote>();
+    public ICollection<Message> Messages { get; set; } = new List<Message>();
 }
 
 /// <summary>
@@ -68,9 +82,11 @@ public enum BookingType
 /// </summary>
 public enum ServiceRequestStatus
 {
-    Pending = 0,
-    QuoteRequested = 1,
-    Confirmed = 2,
+    Open = 0,
+    Assigned = 1,
+    InProgress = 2,
     Completed = 3,
-    Cancelled = 4
+    Rejected = 4,
+    Reopened = 5,
+    Cancelled = 6
 }
