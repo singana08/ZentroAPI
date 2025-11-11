@@ -22,6 +22,8 @@ builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IQuoteService, QuoteService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddHttpClient<NotificationService>();
 
 // Add logging
@@ -154,17 +156,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Configure Kestrel to listen on specific ports
-builder.WebHost.ConfigureKestrel(options =>
-{
-    if (builder.Environment.IsDevelopment())
-    {
-        options.ListenAnyIP(3001); // Development port
-    }
-    else
-    {
-        options.ListenAnyIP(8000); // Production port
-    }
-});
+// Use appsettings.json or environment variables for URL configuration
 
 // Build the app
 var app = builder.Build();

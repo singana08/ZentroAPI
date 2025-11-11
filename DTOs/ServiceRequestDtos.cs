@@ -35,6 +35,11 @@ public class CreateServiceRequestDto
     public DateTime? Date { get; set; }
 
     /// <summary>
+    /// Scheduled date (alternative field name for API compatibility)
+    /// </summary>
+    public DateTime? ScheduledDate { get; set; }
+
+    /// <summary>
     /// Preferred time in HH:mm format.
     /// - REQUIRED for 'schedule_later' booking type
     /// - OPTIONAL for 'book_now' booking type
@@ -51,6 +56,16 @@ public class CreateServiceRequestDto
     /// Additional details about the service request
     /// </summary>
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Request title (optional)
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Detailed description of the request
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// Additional notes (max 500 characters)
@@ -220,14 +235,49 @@ public class ServiceRequestResponseDto
     public string? Notes { get; set; }
 
     /// <summary>
+    /// Request title
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Request description
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
     /// Additional notes
     /// </summary>
     public string? AdditionalNotes { get; set; }
 
     /// <summary>
-    /// Current status of the request
+    /// Assigned provider ID (if assigned)
     /// </summary>
-    public string Status { get; set; } = string.Empty;
+    public Guid? AssignedProviderId { get; set; }
+
+    /// <summary>
+    /// Assigned provider name (if assigned)
+    /// </summary>
+    public string? AssignedProviderName { get; set; }
+
+    /// <summary>
+    /// Global service request status (Open, Assigned, Completed, etc.)
+    /// </summary>
+    public string RequestStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Provider-specific status (Hidden, Viewed, Quoted, etc.) - only for providers
+    /// </summary>
+    public string? ProviderStatus { get; set; }
+
+    /// <summary>
+    /// Number of quotes received
+    /// </summary>
+    public int QuoteCount { get; set; }
+
+    /// <summary>
+    /// Number of unread messages
+    /// </summary>
+    public int UnreadMessageCount { get; set; }
 
     /// <summary>
     /// Creation timestamp

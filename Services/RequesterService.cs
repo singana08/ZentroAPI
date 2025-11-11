@@ -218,7 +218,7 @@ public class RequesterService : IRequesterService
                 .ToListAsync();
 
             var totalRequests = serviceRequests.Count;
-            var activeRequests = serviceRequests.Count(sr => sr.Status == ServiceRequestStatus.Pending || sr.Status == ServiceRequestStatus.Confirmed);
+            var activeRequests = serviceRequests.Count(sr => sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Assigned || sr.Status == ServiceRequestStatus.InProgress);
             var completedRequests = serviceRequests.Count(sr => sr.Status == ServiceRequestStatus.Completed);
 
             // Calculate average provider rating from reviews (if you have a Review table)
