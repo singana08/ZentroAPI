@@ -2,6 +2,8 @@ using HaluluAPI.Data;
 using HaluluAPI.DTOs;
 using HaluluAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using HaluluAPI.Hubs;
 
 namespace HaluluAPI.Services;
 
@@ -9,11 +11,13 @@ public class MessageService : IMessageService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<MessageService> _logger;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public MessageService(ApplicationDbContext context, ILogger<MessageService> logger)
+    public MessageService(ApplicationDbContext context, ILogger<MessageService> logger, IHubContext<ChatHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<(bool Success, string Message, MessageResponseDto? Data)> SendMessageAsync(Guid senderId, SendMessageDto request)
@@ -33,13 +37,27 @@ public class MessageService : IMessageService
             }
             else
             {
-                // If sender is requester, receiver is assigned provider (or any provider for open requests)
+                // If sender is requester, find the other person from existing messages
                 // If sender is provider, receiver is requester
                 if (serviceRequest.RequesterId == senderId)
                 {
-                    receiverId = serviceRequest.AssignedProviderId ?? Guid.Empty;
-                    if (receiverId == Guid.Empty)
-                        return (false, "No provider assigned to send message to", null);
+                    // For requesters: find the other person from existing messages in this conversation
+                    var lastMessage = await _context.Messages
+                        .Where(m => m.RequestId == request.RequestId && m.SenderId != senderId)
+                        .OrderByDescending(m => m.Timestamp)
+                        .FirstOrDefaultAsync();
+                    
+                    if (lastMessage != null)
+                    {
+                        receiverId = lastMessage.SenderId;
+                    }
+                    else
+                    {
+                        // Fallback to assigned provider if no messages exist
+                        receiverId = serviceRequest.AssignedProviderId ?? Guid.Empty;
+                        if (receiverId == Guid.Empty)
+                            return (false, "No provider to send message to", null);
+                    }
                 }
                 else
                 {
@@ -79,6 +97,10 @@ public class MessageService : IMessageService
                 IsRead = message.IsRead
             };
 
+            // Send real-time notification via SignalR
+            await _hubContext.Clients.Group($"user_{receiverId}").SendAsync("ReceiveMessage", response);
+            await _hubContext.Clients.Group($"request_{request.RequestId}").SendAsync("ReceiveMessage", response);
+
             return (true, "Message sent successfully", response);
         }
         catch (Exception ex)
@@ -108,9 +130,7 @@ public class MessageService : IMessageService
                 return (false, "Access denied", null);
 
             var messages = await _context.Messages
-                .Where(m => m.RequestId == requestId && 
-                       (isRequester || // Requesters see all messages
-                        m.SenderId == profileId || m.ReceiverId == profileId)) // Providers see only their own conversation
+                .Where(m => m.RequestId == requestId)
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new MessageResponseDto
                 {
@@ -120,17 +140,39 @@ public class MessageService : IMessageService
                     RequestId = m.RequestId,
                     MessageText = m.MessageText,
                     Timestamp = m.Timestamp,
-                    IsRead = m.IsRead
+                    IsRead = m.IsRead,
+                    IsOwn = m.SenderId == profileId
                 })
                 .ToListAsync();
 
             var unreadCount = messages.Count(m => m.ReceiverId == profileId && !m.IsRead);
 
+            // Get quotes for this request
+            var quotes = await _context.Quotes
+                .Include(q => q.Provider)
+                .ThenInclude(p => p!.User)
+                .Where(q => q.RequestId == requestId)
+                .Select(q => new QuoteResponseDto
+                {
+                    Id = q.Id,
+                    ProviderId = q.ProviderId,
+                    RequestId = q.RequestId,
+                    Price = q.Price,
+                    Message = q.Message,
+                    CreatedAt = q.CreatedAt,
+                    ExpiresAt = q.ExpiresAt,
+                    ProviderName = q.Provider!.User!.FullName,
+                    ProviderRating = q.Provider.Rating
+                })
+                .ToListAsync();
+
             var response = new MessagesListResponse
             {
                 Messages = messages,
                 TotalCount = messages.Count,
-                UnreadCount = unreadCount
+                UnreadCount = unreadCount,
+                ProviderId = serviceRequest.AssignedProviderId,
+                Quotes = quotes
             };
 
             return (true, "Messages retrieved successfully", response);
@@ -242,18 +284,26 @@ public class MessageService : IMessageService
                 .Select(prs => prs.RequestId)
                 .ToListAsync();
 
-            _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests for provider {providerId}");
+            _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests for provider {providerId}: [{string.Join(", ", hiddenRequestIds)}]");
 
-            var query = _context.ServiceRequests
+            // First get all open/reopened requests without assigned provider
+            var baseQuery = _context.ServiceRequests
                 .Where(sr => (sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
-                            && sr.AssignedProviderId == null
-                            && !hiddenRequestIds.Contains(sr.Id))
+                            && sr.AssignedProviderId == null)
                 .AsNoTracking();
 
-            var total = await query.CountAsync();
-            _logger.LogInformation($"Found {total} total open requests for provider {providerId}");
+            var allOpenRequests = await baseQuery.Select(sr => sr.Id).ToListAsync();
+            _logger.LogInformation($"Total open/reopened requests: {allOpenRequests.Count} - [{string.Join(", ", allOpenRequests)}]");
 
-            var requests = await query
+            // Filter out hidden requests
+            var visibleRequestIds = allOpenRequests.Except(hiddenRequestIds).ToList();
+            _logger.LogInformation($"Visible requests after filtering: {visibleRequestIds.Count} - [{string.Join(", ", visibleRequestIds)}]");
+
+            var total = visibleRequestIds.Count;
+
+            // Get paginated visible requests with their provider status
+            var serviceRequests = await _context.ServiceRequests
+                .Where(sr => visibleRequestIds.Contains(sr.Id))
                 .GroupJoin(_context.ProviderRequestStatuses.Where(prs => prs.ProviderId == providerId),
                     sr => sr.Id,
                     prs => prs.RequestId,
@@ -261,25 +311,57 @@ public class MessageService : IMessageService
                 .OrderByDescending(x => x.ServiceRequest.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(x => new ServiceRequestResponseDto
-                {
-                    Id = x.ServiceRequest.Id,
-                    UserId = x.ServiceRequest.RequesterId,
-                    BookingType = x.ServiceRequest.BookingType.ToString(),
-                    MainCategory = x.ServiceRequest.MainCategory,
-                    SubCategory = x.ServiceRequest.SubCategory,
-                    Title = x.ServiceRequest.Title,
-                    Description = x.ServiceRequest.Description,
-                    Date = x.ServiceRequest.Date,
-                    Time = x.ServiceRequest.Time,
-                    Location = x.ServiceRequest.Location,
-                    Notes = x.ServiceRequest.Notes,
-                    RequestStatus = x.ServiceRequest.Status.ToString(),
-                    ProviderStatus = x.ProviderStatus != null ? x.ProviderStatus.Status.ToString() : "Viewed",
-                    CreatedAt = x.ServiceRequest.CreatedAt,
-                    UpdatedAt = x.ServiceRequest.UpdatedAt
-                })
                 .ToListAsync();
+
+            var requests = new List<ServiceRequestResponseDto>();
+            foreach (var item in serviceRequests)
+            {
+                var currentProviderStatus = item.ProviderStatus;
+                
+                // Don't auto-create status record - show as "New"
+                // Don't auto-update if status already exists - maintain hierarchy
+                
+                // Get quotes for this request
+                var quotes = await _context.Quotes
+                    .Include(q => q.Provider)
+                    .ThenInclude(p => p!.User)
+                    .Where(q => q.RequestId == item.ServiceRequest.Id)
+                    .Select(q => new QuoteResponseDto
+                    {
+                        Id = q.Id,
+                        ProviderId = q.ProviderId,
+                        RequestId = q.RequestId,
+                        Price = q.Price,
+                        Message = q.Message,
+                        CreatedAt = q.CreatedAt,
+                        ExpiresAt = q.ExpiresAt,
+                        ProviderName = q.Provider!.User!.FullName,
+                        ProviderRating = q.Provider.Rating
+                    })
+                    .ToListAsync();
+
+                requests.Add(new ServiceRequestResponseDto
+                {
+                    Id = item.ServiceRequest.Id,
+                    UserId = item.ServiceRequest.RequesterId,
+                    BookingType = item.ServiceRequest.BookingType.ToString(),
+                    MainCategory = item.ServiceRequest.MainCategory,
+                    SubCategory = item.ServiceRequest.SubCategory,
+                    Title = item.ServiceRequest.Title,
+                    Description = item.ServiceRequest.Description,
+                    Date = item.ServiceRequest.Date,
+                    Time = item.ServiceRequest.Time,
+                    Location = item.ServiceRequest.Location,
+                    Notes = item.ServiceRequest.Notes,
+                    AssignedProviderId = item.ServiceRequest.AssignedProviderId,
+                    RequestStatus = item.ServiceRequest.Status.ToString(),
+                    ProviderStatus = currentProviderStatus != null ? currentProviderStatus.Status.ToString() : "New",
+                    QuoteCount = quotes.Count,
+                    Quotes = quotes,
+                    CreatedAt = item.ServiceRequest.CreatedAt,
+                    UpdatedAt = item.ServiceRequest.UpdatedAt
+                });
+            }
 
             var response = new PaginatedServiceRequestsDto
             {
@@ -289,7 +371,7 @@ public class MessageService : IMessageService
                 PageSize = pageSize
             };
 
-            _logger.LogInformation($"Returning {requests.Count} requests for provider {providerId}");
+            _logger.LogInformation($"Returning {requests.Count} requests out of {total} total visible requests for provider {providerId}");
             return (true, "Open requests retrieved successfully", response);
         }
         catch (Exception ex)
@@ -322,6 +404,24 @@ public class MessageService : IMessageService
             }
             else
             {
+                // Check status hierarchy - prevent downgrading unless cancelled/reopened
+                if (!CanUpdateStatus(existingStatus.Status, status))
+                {
+                    _logger.LogInformation($"Status update blocked: Cannot change from {existingStatus.Status} to {status} for provider {providerId}, request {request.RequestId}");
+                    
+                    // Return current status without updating
+                    var currentResponse = new ProviderStatusResponseDto
+                    {
+                        Id = existingStatus.Id,
+                        RequestId = existingStatus.RequestId,
+                        ProviderId = existingStatus.ProviderId,
+                        Status = existingStatus.Status.ToString(),
+                        LastUpdated = existingStatus.LastUpdated,
+                        QuoteId = existingStatus.QuoteId
+                    };
+                    return (true, "Status maintained at higher level", currentResponse);
+                }
+                
                 existingStatus.Status = status;
                 existingStatus.LastUpdated = DateTime.UtcNow;
                 existingStatus.QuoteId = request.QuoteId;
@@ -346,6 +446,27 @@ public class MessageService : IMessageService
             _logger.LogError(ex, "Error updating provider status");
             return (false, "Failed to update status", null);
         }
+    }
+
+    /// <summary>
+    /// Check if status can be updated based on hierarchy rules
+    /// </summary>
+    private bool CanUpdateStatus(ProviderStatus currentStatus, ProviderStatus newStatus)
+    {
+        // Status hierarchy (higher number = higher priority):
+        // Hidden = 0, Viewed = 1, Negotiating = 2, Quoted = 3, Assigned = 4, Rejected = 5, Completed = 6
+        
+        // Allow updates to same or higher status
+        if ((int)newStatus >= (int)currentStatus)
+            return true;
+            
+        // Allow downgrade only for specific cases:
+        // - From any status to Hidden (provider can always hide)
+        // - From Rejected back to lower statuses (reopening scenario)
+        if (newStatus == ProviderStatus.Hidden || currentStatus == ProviderStatus.Rejected)
+            return true;
+            
+        return false;
     }
 
     public async Task<(bool Success, string Message, ProviderStatusResponseDto? Data)> GetProviderStatusAsync(Guid providerId, Guid requestId)
@@ -414,37 +535,103 @@ public class MessageService : IMessageService
     {
         try
         {
-            var chatList = await _context.Messages
+            // Get basic chat data first
+            var basicChats = await _context.Messages
                 .Where(m => m.SenderId == profileId || m.ReceiverId == profileId)
-                .GroupBy(m => new { m.RequestId, OtherUserId = m.SenderId == profileId ? m.ReceiverId : m.SenderId })
+                .GroupBy(m => m.RequestId)
                 .Select(g => new
                 {
-                    RequestId = g.Key.RequestId,
-                    OtherUserId = g.Key.OtherUserId,
+                    RequestId = g.Key,
+                    OtherProfileId = g.First().SenderId == profileId ? g.First().ReceiverId : g.First().SenderId,
                     LastMessage = g.OrderByDescending(m => m.Timestamp).First().MessageText,
                     LastMessageTime = g.Max(m => m.Timestamp),
                     UnreadCount = g.Count(m => m.ReceiverId == profileId && !m.IsRead)
                 })
-                .Join(_context.ServiceRequests,
-                    chat => chat.RequestId,
-                    sr => sr.Id,
-                    (chat, sr) => new { chat, ServiceTitle = $"{sr.SubCategory} - {sr.MainCategory}" })
-                .Join(_context.Users,
-                    combined => combined.chat.OtherUserId,
-                    user => user.Id,
-                    (combined, user) => new ChatListItemDto
-                    {
-                        RequestId = combined.chat.RequestId,
-                        OtherUserId = combined.chat.OtherUserId,
-                        OtherUserName = user.FullName,
-                        ServiceTitle = combined.ServiceTitle,
-                        LastMessage = combined.chat.LastMessage,
-                        LastMessageTime = combined.chat.LastMessageTime,
-                        UnreadCount = combined.chat.UnreadCount,
-                        IsOnline = false
-                    })
-                .OrderByDescending(c => c.LastMessageTime)
                 .ToListAsync();
+
+            // Get service categories and customer names
+            var chatList = new List<ChatListItemDto>();
+            foreach (var chat in basicChats)
+            {
+                var serviceRequest = await _context.ServiceRequests
+                    .Where(sr => sr.Id == chat.RequestId)
+                    .FirstOrDefaultAsync();
+                
+                string serviceTitle = "Service";
+                string customerName = "User";
+                
+                if (serviceRequest != null)
+                {
+                    serviceTitle = $"{serviceRequest.SubCategory} - {serviceRequest.MainCategory}";
+                }
+                
+                // Get quotes for this request
+                var quotes = await _context.Quotes
+                    .Include(q => q.Provider)
+                    .ThenInclude(p => p!.User)
+                    .Where(q => q.RequestId == chat.RequestId)
+                    .Select(q => new QuoteResponseDto
+                    {
+                        Id = q.Id,
+                        ProviderId = q.ProviderId,
+                        RequestId = q.RequestId,
+                        Price = q.Price,
+                        Message = q.Message,
+                        CreatedAt = q.CreatedAt,
+                        ExpiresAt = q.ExpiresAt,
+                        ProviderName = q.Provider!.User!.FullName,
+                        ProviderRating = q.Provider.Rating
+                    })
+                    .ToListAsync();
+                
+                // Get customer name from other profile
+                var requester = await _context.Requesters
+                    .Where(r => r.Id == chat.OtherProfileId)
+                    .Join(_context.Users, r => r.UserId, u => u.Id, (r, u) => u.FullName)
+                    .FirstOrDefaultAsync();
+                
+                if (requester != null)
+                {
+                    customerName = requester;
+                }
+                else
+                {
+                    var provider = await _context.Providers
+                        .Where(p => p.Id == chat.OtherProfileId)
+                        .Join(_context.Users, p => p.UserId, u => u.Id, (p, u) => u.FullName)
+                        .FirstOrDefaultAsync();
+                    
+                    if (provider != null)
+                        customerName = provider;
+                }
+                
+                chatList.Add(new ChatListItemDto
+                {
+                    RequestId = chat.RequestId,
+                    OtherUserId = chat.OtherProfileId,
+                    OtherUserName = customerName,
+                    ServiceTitle = serviceTitle,
+                    LastMessage = chat.LastMessage,
+                    LastMessageTime = chat.LastMessageTime,
+                    UnreadCount = chat.UnreadCount,
+                    IsOnline = false,
+                    Quotes = quotes
+                });
+            }
+            
+            chatList = chatList.OrderByDescending(c => c.LastMessageTime).ToList();
+
+            // TODO: Uncomment joins later if needed for user names and service titles
+            /*
+            .Join(_context.ServiceRequests,
+                chat => chat.RequestId,
+                sr => sr.Id,
+                (chat, sr) => new { chat, ServiceTitle = $"{sr.SubCategory} - {sr.MainCategory}" })
+            .Join(_context.Users,
+                combined => combined.chat.OtherUserId,
+                user => user.Id,
+                (combined, user) => new ChatListItemDto { ... })
+            */
 
             var response = new ChatListResponse
             {
@@ -458,6 +645,29 @@ public class MessageService : IMessageService
         {
             _logger.LogError(ex, "Error getting chat list");
             return (false, "Failed to get chat list", null);
+        }
+    }
+
+    public async Task<(bool Success, string Message)> MarkMessagesAsReadAsync(Guid requestId, Guid profileId)
+    {
+        try
+        {
+            var messages = await _context.Messages
+                .Where(m => m.RequestId == requestId && m.ReceiverId == profileId && !m.IsRead)
+                .ToListAsync();
+
+            foreach (var message in messages)
+            {
+                message.IsRead = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return (true, "Messages marked as read");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking messages as read");
+            return (false, "Failed to mark messages as read");
         }
     }
 }

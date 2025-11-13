@@ -24,7 +24,11 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IQuoteService, QuoteService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IAgreementService, AgreementService>();
 builder.Services.AddHttpClient<NotificationService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add logging
 builder.Services.AddLogging(config =>
@@ -77,6 +81,17 @@ builder.Services.AddAuthentication(options =>
         OnTokenValidated = context =>
         {
             Console.WriteLine("JWT Token validated successfully");
+            return Task.CompletedTask;
+        },
+        OnMessageReceived = context =>
+        {
+            // Allow SignalR to get token from query string
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
             return Task.CompletedTask;
         }
     };
@@ -210,6 +225,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR hub
+app.MapHub<HaluluAPI.Hubs.ChatHub>("/chathub");
 
 // Map health check endpoints
 //app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))

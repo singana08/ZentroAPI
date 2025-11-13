@@ -17,6 +17,7 @@ public class MessageResponseDto
     public DateTime Timestamp { get; set; }
     public bool IsRead { get; set; }
     public string? SenderName { get; set; }
+    public bool IsOwn { get; set; }
 }
 
 public class MessagesListResponse
@@ -24,6 +25,8 @@ public class MessagesListResponse
     public List<MessageResponseDto> Messages { get; set; } = new();
     public int TotalCount { get; set; }
     public int UnreadCount { get; set; }
+    public Guid? ProviderId { get; set; }
+    public List<QuoteResponseDto> Quotes { get; set; } = new();
 }
 
 public class AssignProviderDto

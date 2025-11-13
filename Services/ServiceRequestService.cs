@@ -87,7 +87,7 @@ public class ServiceRequestService : IServiceRequestService
             _logger.LogInformation(
                 $"Service request created successfully. ID: {serviceRequest.Id}, Requester: {userId}, Type: {bookingType}");
 
-            var responseDto = MapToResponseDto(serviceRequest);
+            var responseDto = MapToResponseDto(serviceRequest, userId);
             return (true, "Service request created successfully", responseDto);
         }
         catch (Exception ex)
@@ -167,7 +167,7 @@ public class ServiceRequestService : IServiceRequestService
             _logger.LogInformation(
                 $"Service request updated successfully. ID: {serviceRequest.Id}, Requester: {userId}");
 
-            var responseDto = MapToResponseDto(serviceRequest);
+            var responseDto = MapToResponseDto(serviceRequest, userId);
             return (true, "Service request updated successfully", responseDto);
         }
         catch (Exception ex)
@@ -204,7 +204,7 @@ public class ServiceRequestService : IServiceRequestService
                 return (false, "Service request not found", null);
             }
 
-            var responseDto = MapToResponseDto(serviceRequest);
+            var responseDto = MapToResponseDto(serviceRequest, userId);
             return (true, "Service request retrieved successfully", responseDto);
         }
         catch (Exception ex)
@@ -290,7 +290,7 @@ public class ServiceRequestService : IServiceRequestService
                 .Take(pageSize)
                 .ToListAsync();
 
-            var responseDtos = serviceRequests.Select(MapToResponseDto).ToList();
+            var responseDtos = serviceRequests.Select(sr => MapToResponseDto(sr, userId)).ToList();
 
             var paginatedResponse = new PaginatedServiceRequestsDto
             {
@@ -399,7 +399,7 @@ public class ServiceRequestService : IServiceRequestService
                 .Take(pageSize)
                 .ToListAsync();
 
-            var responseDtos = serviceRequests.Select(MapToResponseDto).ToList();
+            var responseDtos = serviceRequests.Select(sr => MapToResponseDto(sr, null)).ToList();
 
             var paginatedResponse = new PaginatedServiceRequestsDto
             {
@@ -473,8 +473,38 @@ public class ServiceRequestService : IServiceRequestService
     /// <summary>
     /// Map ServiceRequest entity to ResponseDto
     /// </summary>
-    private static ServiceRequestResponseDto MapToResponseDto(ServiceRequest serviceRequest)
+    private ServiceRequestResponseDto MapToResponseDto(ServiceRequest serviceRequest, Guid? currentUserId = null)
     {
+        // Load quotes for this request - show quotes if user is requester OR provider
+        var quotes = new List<QuoteResponseDto>();
+        if (currentUserId.HasValue)
+        {
+            var isRequester = serviceRequest.RequesterId == currentUserId.Value;
+            var isProvider = _dbContext.Providers.Any(p => p.Id == currentUserId.Value);
+            
+            if (isRequester || isProvider)
+            {
+                quotes = _dbContext.Quotes
+                    .Include(q => q.Provider)
+                    .ThenInclude(p => p!.User)
+                    .Where(q => q.RequestId == serviceRequest.Id)
+                    .Select(q => new QuoteResponseDto
+                    {
+                        Id = q.Id,
+                        ProviderId = q.ProviderId,
+                        RequestId = q.RequestId,
+                        Price = q.Price,
+                        Message = q.Message,
+                        CreatedAt = q.CreatedAt,
+                        ExpiresAt = q.ExpiresAt,
+                        ProviderName = q.Provider!.User!.FullName,
+                        ProviderRating = q.Provider.Rating
+                    })
+                    .ToListAsync()
+                    .Result;
+            }
+        }
+
         return new ServiceRequestResponseDto
         {
             Id = serviceRequest.Id,
@@ -492,6 +522,8 @@ public class ServiceRequestService : IServiceRequestService
             AssignedProviderId = serviceRequest.AssignedProviderId,
             RequestStatus = serviceRequest.Status.ToString(),
             ProviderStatus = null, // Requesters don't see provider status
+            QuoteCount = quotes.Count,
+            Quotes = quotes,
             CreatedAt = serviceRequest.CreatedAt,
             UpdatedAt = serviceRequest.UpdatedAt
         };

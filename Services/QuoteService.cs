@@ -2,6 +2,8 @@ using HaluluAPI.Data;
 using HaluluAPI.DTOs;
 using HaluluAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using HaluluAPI.Hubs;
 
 namespace HaluluAPI.Services;
 
@@ -9,11 +11,13 @@ public class QuoteService : IQuoteService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<QuoteService> _logger;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public QuoteService(ApplicationDbContext context, ILogger<QuoteService> logger)
+    public QuoteService(ApplicationDbContext context, ILogger<QuoteService> logger, IHubContext<ChatHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<(bool Success, string Message, QuoteResponseDto? Data)> CreateQuoteAsync(Guid providerId, CreateQuoteDto request)
@@ -37,7 +41,7 @@ public class QuoteService : IQuoteService
             var existingQuote = await _context.Quotes
                 .FirstOrDefaultAsync(q => q.ProviderId == providerId && q.RequestId == request.RequestId);
             if (existingQuote != null)
-                return (false, "Quote already submitted for this request", null);
+                return (true, "Quote already submitted for this request", null);
 
             var quote = new Quote
             {
@@ -48,7 +52,57 @@ public class QuoteService : IQuoteService
             };
 
             _context.Quotes.Add(quote);
+            
+            // Update provider status to "Quoted"
+            var providerStatus = await _context.ProviderRequestStatuses
+                .FirstOrDefaultAsync(prs => prs.ProviderId == providerId && prs.RequestId == request.RequestId);
+            
+            if (providerStatus == null)
+            {
+                providerStatus = new ProviderRequestStatus
+                {
+                    ProviderId = providerId,
+                    RequestId = request.RequestId,
+                    Status = ProviderStatus.Quoted,
+                    QuoteId = quote.Id
+                };
+                _context.ProviderRequestStatuses.Add(providerStatus);
+            }
+            else
+            {
+                providerStatus.Status = ProviderStatus.Quoted;
+                providerStatus.QuoteId = quote.Id;
+                providerStatus.LastUpdated = DateTime.UtcNow;
+            }
+            
             await _context.SaveChangesAsync();
+
+            // Send default message to requester
+            var defaultMessage = new Message
+            {
+                SenderId = providerId,
+                ReceiverId = serviceRequest.RequesterId,
+                RequestId = request.RequestId,
+                MessageText = $"Hi! I've submitted a quote of ${request.Price:F2} for your {serviceRequest.SubCategory} request. {request.Message ?? "I'm ready to help you with this project. Please let me know if you have any questions!"}"
+            };
+
+            _context.Messages.Add(defaultMessage);
+            await _context.SaveChangesAsync();
+
+            // Send real-time notification
+            var messageResponse = new MessageResponseDto
+            {
+                Id = defaultMessage.Id,
+                SenderId = defaultMessage.SenderId,
+                ReceiverId = defaultMessage.ReceiverId,
+                RequestId = defaultMessage.RequestId,
+                MessageText = defaultMessage.MessageText,
+                Timestamp = defaultMessage.Timestamp,
+                IsRead = defaultMessage.IsRead
+            };
+
+            await _hubContext.Clients.Group($"user_{serviceRequest.RequesterId}").SendAsync("ReceiveMessage", messageResponse);
+            await _hubContext.Clients.Group($"request_{request.RequestId}").SendAsync("ReceiveMessage", messageResponse);
 
             var response = new QuoteResponseDto
             {
@@ -78,7 +132,11 @@ public class QuoteService : IQuoteService
             if (serviceRequest == null)
                 return (false, "Service request not found", null);
 
-            if (serviceRequest.RequesterId != profileId)
+            // Check if user is requester or provider
+            var isRequester = serviceRequest.RequesterId == profileId;
+            var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId);
+            
+            if (!isRequester && !isProvider)
                 return (false, "Access denied", null);
 
             var quotes = await _context.Quotes
