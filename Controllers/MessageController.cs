@@ -62,11 +62,21 @@ public class MessageController : ControllerBase
     {
         try
         {
+            _logger.LogInformation($"GetMessages called with requestId: {requestId}");
+            
             var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
             if (!profileId.HasValue)
+            {
+                _logger.LogWarning("Profile ID not found in token");
                 return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
+            }
 
+            _logger.LogInformation($"Getting messages for requestId: {requestId}, profileId: {profileId.Value}");
+            
             var (success, message, data) = await _messageService.GetMessagesAsync(requestId, profileId.Value);
+            
+            _logger.LogInformation($"GetMessages result - Success: {success}, Message: {message}, MessageCount: {data?.Messages?.Count ?? 0}");
+            
             if (!success)
                 return BadRequest(new ErrorResponse { Message = message });
 
@@ -75,7 +85,7 @@ public class MessageController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting messages");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+            return StatusCode(500, new ErrorResponse { Message = $"Internal server error: {ex.Message}" });
         }
     }
 
@@ -190,6 +200,34 @@ public class MessageController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting chat list");
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Mark messages as read for a chat
+    /// </summary>
+    [HttpPut("chat/{requestId}/read")]
+    [Authorize]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MarkMessagesAsRead([FromRoute] Guid requestId)
+    {
+        try
+        {
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
+                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
+
+            var (success, message) = await _messageService.MarkMessagesAsReadAsync(requestId, profileId.Value);
+            if (!success)
+                return BadRequest(new ErrorResponse { Message = message });
+
+            return Ok(new { Success = true, Message = message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking messages as read");
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }

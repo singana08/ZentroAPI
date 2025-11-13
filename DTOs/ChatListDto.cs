@@ -10,6 +10,7 @@ public class ChatListItemDto
     public DateTime LastMessageTime { get; set; }
     public int UnreadCount { get; set; }
     public bool IsOnline { get; set; }
+    public List<QuoteResponseDto> Quotes { get; set; } = new();
 }
 
 public class ChatListResponse

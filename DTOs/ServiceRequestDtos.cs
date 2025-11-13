@@ -275,6 +275,11 @@ public class ServiceRequestResponseDto
     public int QuoteCount { get; set; }
 
     /// <summary>
+    /// List of quotes for this request
+    /// </summary>
+    public List<QuoteResponseDto> Quotes { get; set; } = new();
+
+    /// <summary>
     /// Number of unread messages
     /// </summary>
     public int UnreadMessageCount { get; set; }

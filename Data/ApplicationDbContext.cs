@@ -23,6 +23,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<HiddenRequest> HiddenRequests => Set<HiddenRequest>();
     public DbSet<ProviderRequestStatus> ProviderRequestStatuses => Set<ProviderRequestStatus>();
+    public DbSet<Agreement> Agreements => Set<Agreement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -345,5 +346,26 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(prs => prs.QuoteId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Agreement configuration
+        modelBuilder.Entity<Agreement>(entity =>
+        {
+            entity.ToTable("agreements");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.RequesterId).IsRequired();
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.RequesterAccepted).HasDefaultValue(false);
+            entity.Property(e => e.ProviderAccepted).HasDefaultValue(false);
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasDefaultValue(AgreementStatus.Pending);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            entity.HasIndex(e => new { e.RequestId, e.ProviderId }).IsUnique();
+            entity.HasIndex(e => e.RequesterId);
+            entity.HasIndex(e => e.ProviderId);
+            entity.HasIndex(e => e.Status);
+        });
     }
 }
