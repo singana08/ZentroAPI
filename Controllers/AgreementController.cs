@@ -22,14 +22,14 @@ public class AgreementController : ControllerBase
     }
 
     /// <summary>
-    /// Create agreement between requester and provider
+    /// Respond to agreement (accept or reject)
     /// </summary>
-    [HttpPost]
+    [HttpPost("respond")]
     [Authorize]
     [ProducesResponseType(typeof(AgreementResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> CreateAgreement([FromBody] CreateAgreementDto request)
+    public async Task<IActionResult> RespondToAgreement([FromBody] AcceptAgreementDto request)
     {
         try
         {
@@ -37,7 +37,7 @@ public class AgreementController : ControllerBase
             if (!profileId.HasValue)
                 return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
 
-            var (success, message, data) = await _agreementService.CreateAgreementAsync(profileId.Value, request);
+            var (success, message, data) = await _agreementService.RespondToAgreementAsync(profileId.Value, request);
             if (!success)
                 return BadRequest(new ErrorResponse { Message = message });
 
@@ -45,36 +45,7 @@ public class AgreementController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating agreement");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Accept agreement (requester or provider)
-    /// </summary>
-    [HttpPost("accept")]
-    [Authorize]
-    [ProducesResponseType(typeof(AgreementResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> AcceptAgreement([FromBody] AcceptAgreementDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
-
-            var (success, message, data) = await _agreementService.AcceptAgreementAsync(profileId.Value, request);
-            if (!success)
-                return BadRequest(new ErrorResponse { Message = message });
-
-            return Ok(data);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error accepting agreement");
+            _logger.LogError(ex, "Error responding to agreement");
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
@@ -108,32 +79,4 @@ public class AgreementController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Cancel agreement (requester or provider)
-    /// </summary>
-    [HttpPost("cancel")]
-    [Authorize]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> CancelAgreement([FromBody] AcceptAgreementDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
-
-            var (success, message) = await _agreementService.CancelAgreementAsync(profileId.Value, request);
-            if (!success)
-                return BadRequest(new ErrorResponse { Message = message });
-
-            return Ok(new { Success = true, Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error cancelling agreement");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
 }

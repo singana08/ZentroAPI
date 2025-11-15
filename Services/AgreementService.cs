@@ -16,7 +16,9 @@ public class AgreementService : IAgreementService
         _logger = logger;
     }
 
-    public async Task<(bool Success, string Message, AgreementResponseDto? Data)> CreateAgreementAsync(Guid requesterId, CreateAgreementDto request)
+
+
+    public async Task<(bool Success, string Message, AgreementResponseDto? Data)> RespondToAgreementAsync(Guid profileId, AcceptAgreementDto request)
     {
         try
         {
@@ -24,76 +26,134 @@ public class AgreementService : IAgreementService
             if (serviceRequest == null)
                 return (false, "Service request not found", null);
 
-            if (serviceRequest.RequesterId != requesterId)
-                return (false, "Access denied", null);
-
-            // Check if provider is already assigned
-            if (serviceRequest.AssignedProviderId != null)
-                return (false, "Provider already assigned to this request", null);
-
-            var existingAgreement = await _context.Agreements
-                .FirstOrDefaultAsync(a => a.RequestId == request.RequestId && a.ProviderId == request.ProviderId);
-            
-            if (existingAgreement != null)
-                return (false, "Agreement already exists", null);
-
-            var agreement = new Agreement
-            {
-                RequestId = request.RequestId,
-                RequesterId = requesterId,
-                ProviderId = request.ProviderId
-            };
-
-            _context.Agreements.Add(agreement);
-            await _context.SaveChangesAsync();
-
-            var response = new AgreementResponseDto
-            {
-                Id = agreement.Id,
-                RequestId = agreement.RequestId,
-                RequesterId = agreement.RequesterId,
-                ProviderId = agreement.ProviderId,
-                RequesterAccepted = agreement.RequesterAccepted,
-                ProviderAccepted = agreement.ProviderAccepted,
-                RequesterAcceptedAt = agreement.RequesterAcceptedAt,
-                ProviderAcceptedAt = agreement.ProviderAcceptedAt,
-                FinalizedAt = agreement.FinalizedAt,
-                Status = agreement.Status.ToString(),
-                CreatedAt = agreement.CreatedAt
-            };
-
-            return (true, "Agreement created successfully", response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating agreement");
-            return (false, "Failed to create agreement", null);
-        }
-    }
-
-    public async Task<(bool Success, string Message, AgreementResponseDto? Data)> AcceptAgreementAsync(Guid profileId, AcceptAgreementDto request)
-    {
-        try
-        {
-            var agreement = await _context.Agreements.FindAsync(request.AgreementId);
-            if (agreement == null)
-                return (false, "Agreement not found", null);
-
-            bool isRequester = agreement.RequesterId == profileId;
-            bool isProvider = agreement.ProviderId == profileId;
-
-            if (!isRequester && !isProvider)
-                return (false, "Access denied", null);
+            bool isRequester = serviceRequest.RequesterId == profileId;
+            Guid providerId = Guid.Empty;
 
             if (isRequester)
             {
-                agreement.RequesterAccepted = true;
-                agreement.RequesterAcceptedAt = DateTime.UtcNow;
+                // Requester responding - find provider from quotes
+                var quote = await _context.Quotes
+                    .FirstOrDefaultAsync(q => q.RequestId == request.RequestId);
+                if (quote == null)
+                    return (false, "No quotes found for this request", null);
+                providerId = quote.ProviderId;
             }
             else
             {
-                agreement.ProviderAccepted = true;
-                agreement.ProviderAcceptedAt = DateTime.UtcNow;
+                // Provider responding - check if they have a quote
+                var quote = await _context.Quotes
+                    .FirstOrDefaultAsync(q => q.RequestId == request.RequestId && q.ProviderId == profileId);
+                if (quote == null)
+                    return (false, "You don't have a quote for this request", null);
+                providerId = profileId;
+            }
+
+            var agreement = await _context.Agreements
+                .FirstOrDefaultAsync(a => a.RequestId == request.RequestId && 
+                                    a.RequesterId == serviceRequest.RequesterId && 
+                                    a.ProviderId == providerId);
+
+            if (agreement == null)
+            {
+                agreement = new Agreement
+                {
+                    RequestId = request.RequestId,
+                    RequesterId = serviceRequest.RequesterId,
+                    ProviderId = providerId
+                };
+                _context.Agreements.Add(agreement);
+                await _context.SaveChangesAsync();
+            }
+
+            if (request.IsAccepted)
+            {
+                if (isRequester)
+                {
+                    agreement.RequesterAccepted = true;
+                    agreement.RequesterAcceptedAt = DateTime.UtcNow;
+                    
+                    var message = new Message
+                    {
+                        SenderId = profileId,
+                        ReceiverId = providerId,
+                        RequestId = agreement.RequestId,
+                        MessageText = "I have agreed to your proposal. Waiting for your agreement to finalize the deal."
+                    };
+                    _context.Messages.Add(message);
+                }
+                else
+                {
+                    agreement.ProviderAccepted = true;
+                    agreement.ProviderAcceptedAt = DateTime.UtcNow;
+                    
+                    var message = new Message
+                    {
+                        SenderId = profileId,
+                        ReceiverId = serviceRequest.RequesterId,
+                        RequestId = agreement.RequestId,
+                        MessageText = "I have accepted your agreement. Looking forward to working with you!"
+                    };
+                    _context.Messages.Add(message);
+                }
+            }
+            else
+            {
+                agreement.Status = AgreementStatus.Rejected;
+                agreement.UpdatedAt = DateTime.UtcNow;
+                
+                var rejectionMessage = new Message
+                {
+                    SenderId = profileId,
+                    ReceiverId = isRequester ? providerId : serviceRequest.RequesterId,
+                    RequestId = agreement.RequestId,
+                    MessageText = isRequester 
+                        ? "I have to decline your proposal. Thank you for your time."
+                        : "I cannot accept this agreement at this time. Thank you for considering me."
+                };
+                _context.Messages.Add(rejectionMessage);
+                
+                // Hide request from provider when rejected
+                var existingStatus = await _context.ProviderRequestStatuses
+                    .FirstOrDefaultAsync(p => p.ProviderId == providerId && p.RequestId == agreement.RequestId);
+                
+                if (existingStatus != null)
+                {
+                    existingStatus.Status = ProviderStatus.Hidden;
+                }
+                else
+                {
+                    var hiddenStatus = new ProviderRequestStatus
+                    {
+                        ProviderId = providerId,
+                        RequestId = agreement.RequestId,
+                        Status = ProviderStatus.Hidden
+                    };
+                    _context.ProviderRequestStatuses.Add(hiddenStatus);
+                }
+                
+                // Set service request back to open
+                serviceRequest.Status = ServiceRequestStatus.Open;
+                serviceRequest.UpdatedAt = DateTime.UtcNow;
+                
+                agreement.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                
+                var rejectionResponse = new AgreementResponseDto
+                {
+                    Id = agreement.Id,
+                    RequestId = agreement.RequestId,
+                    RequesterId = agreement.RequesterId,
+                    ProviderId = agreement.ProviderId,
+                    RequesterAccepted = agreement.RequesterAccepted,
+                    ProviderAccepted = agreement.ProviderAccepted,
+                    RequesterAcceptedAt = agreement.RequesterAcceptedAt,
+                    ProviderAcceptedAt = agreement.ProviderAcceptedAt,
+                    FinalizedAt = agreement.FinalizedAt,
+                    Status = agreement.Status.ToString(),
+                    CreatedAt = agreement.CreatedAt
+                };
+                
+                return (true, "Agreement rejected successfully", rejectionResponse);
             }
 
             // Check if both parties accepted
@@ -103,13 +163,47 @@ public class AgreementService : IAgreementService
                 agreement.FinalizedAt = DateTime.UtcNow;
                 
                 // Assign provider to service request
-                var serviceRequest = await _context.ServiceRequests.FindAsync(agreement.RequestId);
-                if (serviceRequest != null)
+                serviceRequest.AssignedProviderId = providerId;
+                serviceRequest.Status = ServiceRequestStatus.Assigned;
+                serviceRequest.UpdatedAt = DateTime.UtcNow;
+                
+                // Update provider request status to Assigned
+                var providerStatus = await _context.ProviderRequestStatuses
+                    .FirstOrDefaultAsync(p => p.ProviderId == providerId && p.RequestId == agreement.RequestId);
+                
+                if (providerStatus != null)
                 {
-                    serviceRequest.AssignedProviderId = agreement.ProviderId;
-                    serviceRequest.Status = ServiceRequestStatus.Assigned;
-                    serviceRequest.UpdatedAt = DateTime.UtcNow;
+                    providerStatus.Status = ProviderStatus.Assigned;
                 }
+                else
+                {
+                    var assignedStatus = new ProviderRequestStatus
+                    {
+                        ProviderId = providerId,
+                        RequestId = agreement.RequestId,
+                        Status = ProviderStatus.Assigned
+                    };
+                    _context.ProviderRequestStatuses.Add(assignedStatus);
+                }
+                
+                // Update quote status to accepted
+                var quote = await _context.Quotes
+                    .FirstOrDefaultAsync(q => q.RequestId == request.RequestId && q.ProviderId == providerId);
+                if (quote != null)
+                {
+                    quote.Status = "Accepted";
+                    quote.UpdatedAt = DateTime.UtcNow;
+                }
+                
+                // Send finalization message
+                var finalMessage = new Message
+                {
+                    SenderId = profileId,
+                    ReceiverId = isRequester ? providerId : serviceRequest.RequesterId,
+                    RequestId = agreement.RequestId,
+                    MessageText = "🎉 Great! Both parties have agreed. The service is now confirmed. Let's get started!"
+                };
+                _context.Messages.Add(finalMessage);
             }
 
             agreement.UpdatedAt = DateTime.UtcNow;
@@ -174,39 +268,7 @@ public class AgreementService : IAgreementService
         }
     }
 
-    public async Task<(bool Success, string Message)> CancelAgreementAsync(Guid profileId, AcceptAgreementDto request)
-    {
-        try
-        {
-            var agreement = await _context.Agreements.FindAsync(request.AgreementId);
-            if (agreement == null)
-                return (false, "Agreement not found");
 
-            bool isRequester = agreement.RequesterId == profileId;
-            bool isProvider = agreement.ProviderId == profileId;
 
-            if (!isRequester && !isProvider)
-                return (false, "Access denied");
 
-            agreement.Status = AgreementStatus.Cancelled;
-            agreement.UpdatedAt = DateTime.UtcNow;
-
-            // Remove provider assignment from service request if it was assigned
-            var serviceRequest = await _context.ServiceRequests.FindAsync(agreement.RequestId);
-            if (serviceRequest != null && serviceRequest.AssignedProviderId == agreement.ProviderId)
-            {
-                serviceRequest.AssignedProviderId = null;
-                serviceRequest.Status = ServiceRequestStatus.Open;
-                serviceRequest.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-            return (true, "Agreement cancelled successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error cancelling agreement");
-            return (false, "Failed to cancel agreement");
-        }
-    }
 }

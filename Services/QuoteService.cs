@@ -83,7 +83,7 @@ public class QuoteService : IQuoteService
                 SenderId = providerId,
                 ReceiverId = serviceRequest.RequesterId,
                 RequestId = request.RequestId,
-                MessageText = $"Hi! I've submitted a quote of ${request.Price:F2} for your {serviceRequest.SubCategory} request. {request.Message ?? "I'm ready to help you with this project. Please let me know if you have any questions!"}"
+                MessageText = $"Hi! I've submitted a quote of ₹{request.Price:F2} for your {serviceRequest.SubCategory} request. {request.Message ?? "I'm ready to help you with this project. Please let me know if you have any questions!"}"
             };
 
             _context.Messages.Add(defaultMessage);
@@ -111,7 +111,10 @@ public class QuoteService : IQuoteService
                 RequestId = quote.RequestId,
                 Price = quote.Price,
                 Message = quote.Message,
-                CreatedAt = quote.CreatedAt
+                CreatedAt = quote.CreatedAt,
+                ExpiresAt = quote.ExpiresAt,
+                QuoteStatus = quote.Status,
+                UpdatedAt = quote.UpdatedAt
             };
 
             return (true, "Quote submitted successfully", response);
@@ -152,6 +155,9 @@ public class QuoteService : IQuoteService
                     Price = q.Price,
                     Message = q.Message,
                     CreatedAt = q.CreatedAt,
+                    ExpiresAt = q.ExpiresAt,
+                    QuoteStatus = q.Status,
+                    UpdatedAt = q.UpdatedAt,
                     ProviderName = q.Provider!.User!.FullName,
                     ProviderRating = q.Provider.Rating
                 })

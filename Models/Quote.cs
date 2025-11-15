@@ -30,6 +30,12 @@ public class Quote
 
     public DateTime? ExpiresAt { get; set; }
 
+    [Column("status")]
+    public string Status { get; set; } = "Pending";
+
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     // Navigation properties
     [ForeignKey(nameof(ProviderId))]
     public Provider? Provider { get; set; }

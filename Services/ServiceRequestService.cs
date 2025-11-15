@@ -73,6 +73,8 @@ public class ServiceRequestService : IServiceRequestService
                 Date = (request.ScheduledDate ?? request.Date).HasValue ? DateTime.SpecifyKind((request.ScheduledDate ?? request.Date).Value, DateTimeKind.Utc) : null,
                 Time = request.Time?.Trim(),
                 Location = request.Location.Trim(),
+                Latitude = request.Coordinates?.Latitude,
+                Longitude = request.Coordinates?.Longitude,
                 Notes = request.Notes?.Trim(),
                 Title = request.Title?.Trim(),
                 Description = request.Description?.Trim(),
@@ -153,6 +155,8 @@ public class ServiceRequestService : IServiceRequestService
             serviceRequest.Date = request.ScheduledDate ?? request.Date;
             serviceRequest.Time = request.Time?.Trim();
             serviceRequest.Location = request.Location.Trim();
+            serviceRequest.Latitude = request.Coordinates?.Latitude;
+            serviceRequest.Longitude = request.Coordinates?.Longitude;
             serviceRequest.Notes = request.Notes?.Trim();
             serviceRequest.Title = request.Title?.Trim();
             serviceRequest.Description = request.Description?.Trim();
@@ -525,7 +529,10 @@ public class ServiceRequestService : IServiceRequestService
             QuoteCount = quotes.Count,
             Quotes = quotes,
             CreatedAt = serviceRequest.CreatedAt,
-            UpdatedAt = serviceRequest.UpdatedAt
+            UpdatedAt = serviceRequest.UpdatedAt,
+            Coordinates = serviceRequest.Latitude.HasValue && serviceRequest.Longitude.HasValue 
+                ? new CoordinatesDto { Latitude = serviceRequest.Latitude.Value, Longitude = serviceRequest.Longitude.Value }
+                : null
         };
     }
 }

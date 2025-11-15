@@ -8,7 +8,8 @@ public class CreateAgreementDto
 
 public class AcceptAgreementDto
 {
-    public Guid AgreementId { get; set; }
+    public Guid RequestId { get; set; }
+    public bool IsAccepted { get; set; } = true;
 }
 
 public class AgreementResponseDto

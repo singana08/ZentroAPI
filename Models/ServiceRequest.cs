@@ -46,6 +46,10 @@ public class ServiceRequest
     [StringLength(500)]
     public string? AdditionalNotes { get; set; }
 
+    public double? Latitude { get; set; }
+    
+    public double? Longitude { get; set; }
+
     public Guid? AssignedProviderId { get; set; }
 
     [Required]

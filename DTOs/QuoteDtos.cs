@@ -17,6 +17,8 @@ public class QuoteResponseDto
     public string? Message { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    public string QuoteStatus { get; set; } = "Pending";
+    public DateTime UpdatedAt { get; set; }
     public string? ProviderName { get; set; }
     public decimal? ProviderRating { get; set; }
 }
