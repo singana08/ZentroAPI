@@ -286,10 +286,11 @@ public class MessageService : IMessageService
 
             _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests for provider {providerId}: [{string.Join(", ", hiddenRequestIds)}]");
 
-            // First get all open/reopened requests without assigned provider
+            // Get open/reopened requests without assigned provider OR any requests assigned to current provider
             var baseQuery = _context.ServiceRequests
-                .Where(sr => (sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
-                            && sr.AssignedProviderId == null)
+                .Where(sr => ((sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
+                            && sr.AssignedProviderId == null) ||
+                            sr.AssignedProviderId == providerId)
                 .AsNoTracking();
 
             var allOpenRequests = await baseQuery.Select(sr => sr.Id).ToListAsync();
@@ -353,13 +354,17 @@ public class MessageService : IMessageService
                     Time = item.ServiceRequest.Time,
                     Location = item.ServiceRequest.Location,
                     Notes = item.ServiceRequest.Notes,
+                    AdditionalNotes = item.ServiceRequest.AdditionalNotes,
                     AssignedProviderId = item.ServiceRequest.AssignedProviderId,
                     RequestStatus = item.ServiceRequest.Status.ToString(),
                     ProviderStatus = currentProviderStatus != null ? currentProviderStatus.Status.ToString() : "New",
                     QuoteCount = quotes.Count,
                     Quotes = quotes,
                     CreatedAt = item.ServiceRequest.CreatedAt,
-                    UpdatedAt = item.ServiceRequest.UpdatedAt
+                    UpdatedAt = item.ServiceRequest.UpdatedAt,
+                    Coordinates = item.ServiceRequest.Latitude.HasValue && item.ServiceRequest.Longitude.HasValue 
+                        ? new CoordinatesDto { Latitude = item.ServiceRequest.Latitude.Value, Longitude = item.ServiceRequest.Longitude.Value }
+                        : null
                 });
             }
 

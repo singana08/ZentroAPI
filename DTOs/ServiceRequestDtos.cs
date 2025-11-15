@@ -71,6 +71,11 @@ public class CreateServiceRequestDto
     /// Additional notes (max 500 characters)
     /// </summary>
     public string? AdditionalNotes { get; set; }
+
+    /// <summary>
+    /// Location coordinates
+    /// </summary>
+    public CoordinatesDto? Coordinates { get; set; }
 }
 
 /// <summary>
@@ -293,6 +298,20 @@ public class ServiceRequestResponseDto
     /// Last update timestamp (nullable)
     /// </summary>
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Location coordinates
+    /// </summary>
+    public CoordinatesDto? Coordinates { get; set; }
+}
+
+/// <summary>
+/// Coordinates DTO for location
+/// </summary>
+public class CoordinatesDto
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
 }
 
 /// <summary>

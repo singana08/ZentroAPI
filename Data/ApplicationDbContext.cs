@@ -227,9 +227,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.Message).HasMaxLength(1000);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.UpdatedAt).IsRequired();
             
             entity.HasIndex(e => e.RequestId);
             entity.HasIndex(e => e.ProviderId);
+            entity.HasIndex(e => e.Status);
             entity.HasIndex(e => new { e.RequestId, e.ProviderId }).IsUnique();
         });
 
