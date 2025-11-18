@@ -24,6 +24,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<HiddenRequest> HiddenRequests => Set<HiddenRequest>();
     public DbSet<ProviderRequestStatus> ProviderRequestStatuses => Set<ProviderRequestStatus>();
     public DbSet<Agreement> Agreements => Set<Agreement>();
+    public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -370,5 +371,36 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ProviderId);
             entity.HasIndex(e => e.Status);
         });
+
+        // WorkflowStatus configuration
+        modelBuilder.Entity<WorkflowStatus>(entity =>
+        {
+            entity.ToTable("workflow_statuses");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.IsInProgress).HasDefaultValue(false);
+            entity.Property(e => e.IsCheckedIn).HasDefaultValue(false);
+            entity.Property(e => e.IsCompleted).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => new { e.RequestId, e.ProviderId }).IsUnique();
+            entity.HasIndex(e => e.RequestId);
+            entity.HasIndex(e => e.ProviderId);
+        });
+
+        // WorkflowStatus relationships
+        modelBuilder.Entity<WorkflowStatus>()
+            .HasOne(ws => ws.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(ws => ws.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowStatus>()
+            .HasOne(ws => ws.Provider)
+            .WithMany()
+            .HasForeignKey(ws => ws.ProviderId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

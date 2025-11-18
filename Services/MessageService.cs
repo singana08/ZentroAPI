@@ -206,6 +206,16 @@ public class MessageService : IMessageService
             serviceRequest.Status = ServiceRequestStatus.Assigned;
             serviceRequest.UpdatedAt = DateTime.UtcNow;
 
+            // Create initial workflow status record
+            var workflowStatus = new WorkflowStatus
+            {
+                RequestId = request.RequestId,
+                ProviderId = request.ProviderId,
+                IsAssigned = true,
+                AssignedDate = DateTime.UtcNow
+            };
+            _context.WorkflowStatuses.Add(workflowStatus);
+
             await _context.SaveChangesAsync();
 
             return (true, "Provider assigned successfully");

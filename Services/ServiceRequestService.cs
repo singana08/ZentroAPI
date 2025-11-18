@@ -190,21 +190,36 @@ public class ServiceRequestService : IServiceRequestService
     {
         try
         {
-            // Validate requester exists
-            var requesterExists = await _dbContext.Requesters.AsNoTracking().AnyAsync(r => r.Id == userId);
-            if (!requesterExists)
+            // Check if user is requester or provider
+            var isRequester = await _dbContext.Requesters.AsNoTracking().AnyAsync(r => r.Id == userId);
+            var isProvider = await _dbContext.Providers.AsNoTracking().AnyAsync(p => p.Id == userId);
+            
+            if (!isRequester && !isProvider)
             {
-                _logger.LogWarning($"Requester profile {userId} not found for service request retrieval");
-                return (false, "Requester profile not found", null);
+                _logger.LogWarning($"Profile {userId} not found in requesters or providers");
+                return (false, "Profile not found", null);
             }
 
-            var serviceRequest = await _dbContext.ServiceRequests
-                .AsNoTracking()
-                .FirstOrDefaultAsync(sr => sr.Id == requestId && sr.RequesterId == userId);
+            ServiceRequest? serviceRequest;
+            
+            if (isRequester)
+            {
+                // Requesters can only see their own requests
+                serviceRequest = await _dbContext.ServiceRequests
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(sr => sr.Id == requestId && sr.RequesterId == userId);
+            }
+            else
+            {
+                // Providers can see any open service request
+                serviceRequest = await _dbContext.ServiceRequests
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(sr => sr.Id == requestId);
+            }
 
             if (serviceRequest == null)
             {
-                _logger.LogWarning($"Service request {requestId} not found for requester {userId}");
+                _logger.LogWarning($"Service request {requestId} not found for user {userId}");
                 return (false, "Service request not found", null);
             }
 
@@ -484,11 +499,12 @@ public class ServiceRequestService : IServiceRequestService
         if (currentUserId.HasValue)
         {
             var isRequester = serviceRequest.RequesterId == currentUserId.Value;
-            var isProvider = _dbContext.Providers.Any(p => p.Id == currentUserId.Value);
+            var isProvider = _dbContext.Providers.AsNoTracking().Any(p => p.Id == currentUserId.Value);
             
             if (isRequester || isProvider)
             {
                 quotes = _dbContext.Quotes
+                    .AsNoTracking()
                     .Include(q => q.Provider)
                     .ThenInclude(p => p!.User)
                     .Where(q => q.RequestId == serviceRequest.Id)

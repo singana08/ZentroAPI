@@ -89,8 +89,9 @@ public enum ServiceRequestStatus
     Open = 0,
     Assigned = 1,
     InProgress = 2,
-    Completed = 3,
-    Rejected = 4,
-    Reopened = 5,
-    Cancelled = 6
+    CheckedIn = 3,
+    Completed = 4,
+    Rejected = 5,
+    Reopened = 6,
+    Cancelled = 7
 }
