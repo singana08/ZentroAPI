@@ -25,6 +25,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IQuoteService, QuoteService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IAgreementService, AgreementService>();
+builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddHttpClient<NotificationService>();
 
 // Add SignalR

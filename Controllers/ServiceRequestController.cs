@@ -22,6 +22,7 @@ public class ServiceRequestController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly IMessageService _messageService;
     private readonly ITokenService _tokenService;
+    private readonly IWorkflowService _workflowService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ServiceRequestController> _logger;
 
@@ -30,6 +31,7 @@ public class ServiceRequestController : ControllerBase
         INotificationService notificationService,
         IMessageService messageService,
         ITokenService tokenService,
+        IWorkflowService workflowService,
         ApplicationDbContext context,
         ILogger<ServiceRequestController> logger)
     {
@@ -37,6 +39,7 @@ public class ServiceRequestController : ControllerBase
         _notificationService = notificationService;
         _messageService = messageService;
         _tokenService = tokenService;
+        _workflowService = workflowService;
         _context = context;
         _logger = logger;
     }
@@ -544,6 +547,125 @@ public class ServiceRequestController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error completing request");
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Update workflow status for a service request
+    /// Only assigned providers can update workflow status
+    /// </summary>
+    /// <param name="id">Service request ID</param>
+    /// <param name="request">Workflow status update</param>
+    /// <returns>Updated workflow status</returns>
+    [HttpPut("{id}/workflow-status")]
+    [Authorize]
+    [ProducesResponseType(typeof(WorkflowStatusResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateWorkflowStatus(
+        [FromRoute] Guid id,
+        [FromBody] UpdateWorkflowStatusDto request)
+    {
+        try
+        {
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+
+            // Verify user is a provider
+            var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
+            if (!isProvider)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Success = false,
+                    Message = "Only providers can update workflow status"
+                });
+            }
+
+            var (success, message, data) = await _workflowService.UpdateWorkflowStatusAsync(id, profileId.Value, request.Status);
+
+            if (!success)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Success = false,
+                    Message = message
+                });
+            }
+
+            return Ok(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating workflow status for request {RequestId}", id);
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Get workflow status for a service request
+    /// </summary>
+    /// <param name="id">Service request ID</param>
+    /// <returns>Workflow status</returns>
+    [HttpGet("{id}/workflow-status")]
+    [Authorize]
+    [ProducesResponseType(typeof(WorkflowStatusResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetWorkflowStatus([FromRoute] Guid id)
+    {
+        try
+        {
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+
+            // Check if user is provider or requester
+            var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
+            var isRequester = await _context.Requesters.AnyAsync(r => r.Id == profileId.Value);
+
+            if (!isProvider && !isRequester)
+            {
+                return Unauthorized(new ErrorResponse { Message = "Profile not found" });
+            }
+
+            Guid providerId;
+            if (isProvider)
+            {
+                providerId = profileId.Value;
+            }
+            else
+            {
+                // For requesters, get the assigned provider ID
+                var serviceRequest = await _context.ServiceRequests
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(sr => sr.Id == id && sr.RequesterId == profileId.Value);
+
+                if (serviceRequest?.AssignedProviderId == null)
+                {
+                    return NotFound(new ErrorResponse { Message = "No provider assigned to this request" });
+                }
+
+                providerId = serviceRequest.AssignedProviderId.Value;
+            }
+
+            var (success, message, data) = await _workflowService.GetWorkflowStatusAsync(id, providerId);
+
+            if (!success)
+            {
+                return NotFound(new ErrorResponse { Message = message });
+            }
+
+            return Ok(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving workflow status for request {RequestId}", id);
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
