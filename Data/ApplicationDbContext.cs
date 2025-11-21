@@ -25,6 +25,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ProviderRequestStatus> ProviderRequestStatuses => Set<ProviderRequestStatus>();
     public DbSet<Agreement> Agreements => Set<Agreement>();
     public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
+    public DbSet<Review> Reviews => Set<Review>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -402,5 +404,44 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(ws => ws.ProviderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Review configuration
+        modelBuilder.Entity<Review>(entity =>
+        {
+            entity.ToTable("reviews");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ServiceRequestId).IsRequired();
+            entity.Property(e => e.ProviderId).IsRequired();
+            entity.Property(e => e.CustomerId).IsRequired();
+            entity.Property(e => e.Rating).IsRequired();
+            entity.Property(e => e.Comment).HasMaxLength(1000);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.ProviderId);
+            entity.HasIndex(e => e.ServiceRequestId).IsUnique();
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Review relationships
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(r => r.ServiceRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Provider)
+            .WithMany()
+            .HasForeignKey(r => r.ProviderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Customer)
+            .WithMany()
+            .HasForeignKey(r => r.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+
     }
 }
