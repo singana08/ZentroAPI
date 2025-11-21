@@ -303,6 +303,11 @@ public class ServiceRequestResponseDto
     /// Location coordinates
     /// </summary>
     public CoordinatesDto? Coordinates { get; set; }
+
+    /// <summary>
+    /// Review data if exists for this service request
+    /// </summary>
+    public ReviewResponseDto? Review { get; set; }
 }
 
 /// <summary>

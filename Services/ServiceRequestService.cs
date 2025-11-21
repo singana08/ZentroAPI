@@ -496,6 +496,8 @@ public class ServiceRequestService : IServiceRequestService
     {
         // Load quotes for this request - show quotes if user is requester OR provider
         var quotes = new List<QuoteResponseDto>();
+        ReviewResponseDto? review = null;
+        
         if (currentUserId.HasValue)
         {
             var isRequester = serviceRequest.RequesterId == currentUserId.Value;
@@ -522,6 +524,27 @@ public class ServiceRequestService : IServiceRequestService
                     })
                     .ToListAsync()
                     .Result;
+
+                // Load review if exists for this service request
+                var reviewData = _dbContext.Reviews
+                    .AsNoTracking()
+                    .Include(r => r.Customer)
+                    .ThenInclude(c => c!.User)
+                    .FirstOrDefault(r => r.ServiceRequestId == serviceRequest.Id);
+
+                if (reviewData != null)
+                {
+                    review = new ReviewResponseDto
+                    {
+                        Id = reviewData.Id,
+                        CustomerName = reviewData.Customer?.User?.FullName ?? "Unknown",
+                        ServiceType = $"{serviceRequest.MainCategory} - {serviceRequest.SubCategory}",
+                        Rating = reviewData.Rating,
+                        Comment = reviewData.Comment,
+                        Date = reviewData.CreatedAt,
+                        ServiceRequestId = reviewData.ServiceRequestId
+                    };
+                }
             }
         }
 
@@ -544,6 +567,7 @@ public class ServiceRequestService : IServiceRequestService
             ProviderStatus = null, // Requesters don't see provider status
             QuoteCount = quotes.Count,
             Quotes = quotes,
+            Review = review,
             CreatedAt = serviceRequest.CreatedAt,
             UpdatedAt = serviceRequest.UpdatedAt,
             Coordinates = serviceRequest.Latitude.HasValue && serviceRequest.Longitude.HasValue 
