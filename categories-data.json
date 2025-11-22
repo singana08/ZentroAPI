@@ -1,0 +1,1294 @@
+[
+  {
+    "name": "Business & Freelance Services",
+    "description": "Logo design, content writing, digital marketing, admin help",
+    "icon": "briefcase-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Admin Help",
+        "description": "Scheduling, data entry, emails",
+        "icon": "calendar-outline",
+        "isActive": true
+      },
+      {
+        "name": "Content Writing",
+        "description": "Blogs, articles, product descriptions",
+        "icon": "document-text-outline",
+        "isActive": true
+      },
+      {
+        "name": "Digital Marketing",
+        "description": "SEO, ads, social media strategy",
+        "icon": "megaphone-outline",
+        "isActive": true
+      },
+      {
+        "name": "Email Campaigns",
+        "description": "Design and send newsletters",
+        "icon": "mail-outline",
+        "isActive": true
+      },
+      {
+        "name": "Invoice & Billing Help",
+        "description": "Create and manage invoices",
+        "icon": "receipt-outline",
+        "isActive": true
+      },
+      {
+        "name": "Lead Generation",
+        "description": "Find and qualify prospects",
+        "icon": "search-outline",
+        "isActive": true
+      },
+      {
+        "name": "Logo Design",
+        "description": "Brand identity creation",
+        "icon": "images-outline",
+        "isActive": true
+      },
+      {
+        "name": "Presentation Design",
+        "description": "Slides for pitch or training",
+        "icon": "easel-outline",
+        "isActive": true
+      },
+      {
+        "name": "Social Media Setup",
+        "description": "Create and optimize profiles",
+        "icon": "logo-instagram",
+        "isActive": true
+      },
+      {
+        "name": "Virtual Assistant",
+        "description": "Remote task and calendar help",
+        "icon": "desktop-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Career & Professional Guidance",
+    "description": "Resume help, interview prep, mentorship, freelancing support",
+    "icon": "school-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Career Path Mapping",
+        "description": "Explore long-term goals",
+        "icon": "map-outline",
+        "isActive": true
+      },
+      {
+        "name": "Freelance Platform Setup",
+        "description": "Create accounts and profiles",
+        "icon": "desktop-outline",
+        "isActive": true
+      },
+      {
+        "name": "Freelancing Support",
+        "description": "Platform setup and strategy",
+        "icon": "globe-outline",
+        "isActive": true
+      },
+      {
+        "name": "Interview Prep",
+        "description": "Mock interviews and tips",
+        "icon": "mic-outline",
+        "isActive": true
+      },
+      {
+        "name": "Job Search Help",
+        "description": "Find and apply for jobs",
+        "icon": "search-outline",
+        "isActive": true
+      },
+      {
+        "name": "LinkedIn Profile Setup",
+        "description": "Professional networking help",
+        "icon": "logo-linkedin",
+        "isActive": true
+      },
+      {
+        "name": "Mentorship",
+        "description": "Career advice and guidance",
+        "icon": "person-outline",
+        "isActive": true
+      },
+      {
+        "name": "Portfolio Review",
+        "description": "Feedback on creative or tech work",
+        "icon": "images-outline",
+        "isActive": true
+      },
+      {
+        "name": "Productivity Coaching",
+        "description": "Time and focus strategies",
+        "icon": "timer-outline",
+        "isActive": true
+      },
+      {
+        "name": "Resume Help",
+        "description": "Writing and formatting",
+        "icon": "document-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Cleaning & Maintenance",
+    "description": "Deep cleaning, furniture care, tank/drain cleaning",
+    "icon": "broom-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "AC Filter Cleaning",
+        "description": "Clean and replace AC filters",
+        "icon": "snow-outline",
+        "isActive": true
+      },
+      {
+        "name": "Bathroom Sanitization",
+        "description": "Disinfect and deodorize bathrooms",
+        "icon": "shield-checkmark-outline",
+        "isActive": true
+      },
+      {
+        "name": "Deep Cleaning",
+        "description": "Full home or office cleaning",
+        "icon": "sparkles-outline",
+        "isActive": true
+      },
+      {
+        "name": "Furniture Care",
+        "description": "Polishing, dusting, stain removal",
+        "icon": "bed-outline",
+        "isActive": true
+      },
+      {
+        "name": "Garden Maintenance",
+        "description": "Weeding, trimming, watering",
+        "icon": "leaf-outline",
+        "isActive": true
+      },
+      {
+        "name": "Kitchen Degreasing",
+        "description": "Clean oily surfaces and appliances",
+        "icon": "flame-outline",
+        "isActive": true
+      },
+      {
+        "name": "Post-Event Cleanup",
+        "description": "Restore space after gatherings",
+        "icon": "trash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Sofa Shampooing",
+        "description": "Fabric cleaning and stain removal",
+        "icon": "color-fill-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tank/Drain Cleaning",
+        "description": "Water tank and drainage maintenance",
+        "icon": "water-outline",
+        "isActive": true
+      },
+      {
+        "name": "Window Cleaning",
+        "description": "Glass and frame cleaning",
+        "icon": "window-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Community & Volunteer Services",
+    "description": "Blood donation, NGO work, disaster relief, school outreach",
+    "icon": "leaf-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Awareness Campaigns",
+        "description": "Promote health or social issues",
+        "icon": "megaphone-outline",
+        "isActive": true
+      },
+      {
+        "name": "Blood Donation",
+        "description": "Transport and support",
+        "icon": "water-outline",
+        "isActive": true
+      },
+      {
+        "name": "Clean-Up Drives",
+        "description": "Join local cleanup efforts",
+        "icon": "trash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Community Kitchen Help",
+        "description": "Cook and serve meals",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "name": "Disaster Relief",
+        "description": "Emergency help and logistics",
+        "icon": "warning-outline",
+        "isActive": true
+      },
+      {
+        "name": "Elderly Home Visits",
+        "description": "Spend time with seniors in care homes",
+        "icon": "accessibility-outline",
+        "isActive": true
+      },
+      {
+        "name": "Fundraising Support",
+        "description": "Help raise funds for causes",
+        "icon": "cash-outline",
+        "isActive": true
+      },
+      {
+        "name": "NGO Work",
+        "description": "Assist with social causes",
+        "icon": "hand-left-outline",
+        "isActive": true
+      },
+      {
+        "name": "School Outreach",
+        "description": "Volunteer teaching or mentoring",
+        "icon": "school-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tree Plantation",
+        "description": "Plant and care for trees",
+        "icon": "leaf-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Creative & Lifestyle Services",
+    "description": "Photography, pet care, cooking help, event companion",
+    "icon": "brush-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Art Projects",
+        "description": "Support with painting or crafts",
+        "icon": "brush-outline",
+        "isActive": true
+      },
+      {
+        "name": "Cooking Help",
+        "description": "Meal prep and kitchen support",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "name": "Craft Workshop Support",
+        "description": "Help organize or attend workshops",
+        "icon": "cut-outline",
+        "isActive": true
+      },
+      {
+        "name": "DIY Decor Help",
+        "description": "Assist with home-made decorations",
+        "icon": "color-palette-outline",
+        "isActive": true
+      },
+      {
+        "name": "Event Companion",
+        "description": "Attend functions together",
+        "icon": "balloon-outline",
+        "isActive": true
+      },
+      {
+        "name": "Gardening Help",
+        "description": "Planting and garden care",
+        "icon": "leaf-outline",
+        "isActive": true
+      },
+      {
+        "name": "Music Jam Partner",
+        "description": "Play or sing together casually",
+        "icon": "musical-notes-outline",
+        "isActive": true
+      },
+      {
+        "name": "Pet Care",
+        "description": "Feeding, walking, grooming",
+        "icon": "paw-outline",
+        "isActive": true
+      },
+      {
+        "name": "Photography",
+        "description": "Event or casual shoots",
+        "icon": "camera-outline",
+        "isActive": true
+      },
+      {
+        "name": "Recipe Sharing",
+        "description": "Exchange and try new dishes",
+        "icon": "book-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Cultural & Festival Support",
+    "description": "Festival prep, decor, cooking, shopping assistance",
+    "icon": "sparkles-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Cooking",
+        "description": "Traditional meals and sweets",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "name": "Cultural Decor",
+        "description": "Rangoli, lights, flowers",
+        "icon": "color-palette-outline",
+        "isActive": true
+      },
+      {
+        "name": "Festival Music Setup",
+        "description": "Play devotional or festive music",
+        "icon": "musical-notes-outline",
+        "isActive": true
+      },
+      {
+        "name": "Festival Prep",
+        "description": "Decor, shopping, rituals",
+        "icon": "sparkles-outline",
+        "isActive": true
+      },
+      {
+        "name": "Gift Wrapping",
+        "description": "Wrap and present gifts beautifully",
+        "icon": "gift-outline",
+        "isActive": true
+      },
+      {
+        "name": "Guest Hosting Help",
+        "description": "Welcome and serve guests",
+        "icon": "people-outline",
+        "isActive": true
+      },
+      {
+        "name": "Puja Arrangement",
+        "description": "Prepare items and space for rituals",
+        "icon": "flower-outline",
+        "isActive": true
+      },
+      {
+        "name": "Ritual Setup",
+        "description": "Arrange puja and traditions",
+        "icon": "flame-outline",
+        "isActive": true
+      },
+      {
+        "name": "Shopping Assistance",
+        "description": "Help with festive purchases",
+        "icon": "cart-outline",
+        "isActive": true
+      },
+      {
+        "name": "Traditional Outfit Help",
+        "description": "Saree, dhoti, kurta styling",
+        "icon": "shirt-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Elderly & Family Care",
+    "description": "Parent check-ins, medication help, tech setup, festival support",
+    "icon": "people-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Bill Payment Assistance",
+        "description": "Help with online or in-person bills",
+        "icon": "cash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Birthday Celebration Help",
+        "description": "Plan and assist with celebrations",
+        "icon": "gift-outline",
+        "isActive": true
+      },
+      {
+        "name": "Doctor Visit Escort",
+        "description": "Accompany to appointments",
+        "icon": "person-walking-outline",
+        "isActive": true
+      },
+      {
+        "name": "Family Video Calls Setup",
+        "description": "Set up and troubleshoot calls",
+        "icon": "videocam-outline",
+        "isActive": true
+      },
+      {
+        "name": "Festival Support",
+        "description": "Decor, shopping, rituals",
+        "icon": "sparkles-outline",
+        "isActive": true
+      },
+      {
+        "name": "Grocery Help",
+        "description": "Buy and deliver essentials",
+        "icon": "basket-outline",
+        "isActive": true
+      },
+      {
+        "name": "Medication Help",
+        "description": "Reminders and assistance",
+        "icon": "medkit-outline",
+        "isActive": true
+      },
+      {
+        "name": "Memory Games Facilitation",
+        "description": "Engage in cognitive activities",
+        "icon": "game-controller-outline",
+        "isActive": true
+      },
+      {
+        "name": "Parent Check-ins",
+        "description": "Visit and update family",
+        "icon": "home-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tech Setup",
+        "description": "Phone, TV, Wi-Fi help",
+        "icon": "settings-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Emotional & Social Support",
+    "description": "Companionship, phone friend, grief support, outings",
+    "icon": "chatbubble-ellipses-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Anxiety Listening Support",
+        "description": "Calm presence during anxious moments",
+        "icon": "alert-circle-outline",
+        "isActive": true
+      },
+      {
+        "name": "Celebration Partner",
+        "description": "Be there for birthdays or festivals",
+        "icon": "balloon-outline",
+        "isActive": true
+      },
+      {
+        "name": "Companionship",
+        "description": "Friendly presence and conversation",
+        "icon": "person-outline",
+        "isActive": true
+      },
+      {
+        "name": "Daily Check-ins",
+        "description": "Regular emotional check-ins",
+        "icon": "chatbubble-ellipses-outline",
+        "isActive": true
+      },
+      {
+        "name": "Elderly Conversation",
+        "description": "Talk and share stories with seniors",
+        "icon": "accessibility-outline",
+        "isActive": true
+      },
+      {
+        "name": "Emotional Journaling Help",
+        "description": "Support with reflective writing",
+        "icon": "book-outline",
+        "isActive": true
+      },
+      {
+        "name": "Grief Support",
+        "description": "Compassionate listening and care",
+        "icon": "heart-broken-outline",
+        "isActive": true
+      },
+      {
+        "name": "Movie/TV Companion",
+        "description": "Watch and discuss shows together",
+        "icon": "film-outline",
+        "isActive": true
+      },
+      {
+        "name": "Outings",
+        "description": "Go out together for walks or events",
+        "icon": "walk-outline",
+        "isActive": true
+      },
+      {
+        "name": "Phone Friend",
+        "description": "Call-based emotional support",
+        "icon": "call-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Errand & Daily Help",
+    "description": "Grocery pickup, courier drop, bill payments, tech setup",
+    "icon": "cart-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "ATM Assistance",
+        "description": "Help with withdrawals or deposits",
+        "icon": "card-outline",
+        "isActive": true
+      },
+      {
+        "name": "Bill Payments",
+        "description": "Utility and service bills",
+        "icon": "cash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Courier Drop",
+        "description": "Send packages or documents",
+        "icon": "mail-outline",
+        "isActive": true
+      },
+      {
+        "name": "Daily Chores Help",
+        "description": "Support with everyday tasks",
+        "icon": "checkmark-done-outline",
+        "isActive": true
+      },
+      {
+        "name": "Document Collection",
+        "description": "Retrieve papers from offices",
+        "icon": "document-text-outline",
+        "isActive": true
+      },
+      {
+        "name": "Grocery Pickup",
+        "description": "Buy and deliver essentials",
+        "icon": "basket-outline",
+        "isActive": true
+      },
+      {
+        "name": "Pharmacy Run",
+        "description": "Pick up medicines",
+        "icon": "medkit-outline",
+        "isActive": true
+      },
+      {
+        "name": "Queue Standing",
+        "description": "Wait in line on your behalf",
+        "icon": "time-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tech Setup",
+        "description": "TV, Wi-Fi, phone help",
+        "icon": "settings-outline",
+        "isActive": true
+      },
+      {
+        "name": "Utility Connection Help",
+        "description": "New connections or troubleshooting",
+        "icon": "flash-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Home Improvement",
+    "description": "Painting, decor setup, smart devices, renovation",
+    "icon": "color-palette-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Curtain & Blind Installation",
+        "description": "Mount and adjust window coverings",
+        "icon": "albums-outline",
+        "isActive": true
+      },
+      {
+        "name": "Decor Setup",
+        "description": "Wall art, lighting, furniture placement",
+        "icon": "brush-outline",
+        "isActive": true
+      },
+      {
+        "name": "False Ceiling Work",
+        "description": "Design and install ceiling panels",
+        "icon": "layers-outline",
+        "isActive": true
+      },
+      {
+        "name": "Lighting Design",
+        "description": "Plan and install lighting fixtures",
+        "icon": "bulb-outline",
+        "isActive": true
+      },
+      {
+        "name": "Modular Kitchen Setup",
+        "description": "Install cabinets and appliances",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "name": "Painting",
+        "description": "Interior and exterior painting",
+        "icon": "color-palette-outline",
+        "isActive": true
+      },
+      {
+        "name": "Renovation",
+        "description": "Minor structural or layout changes",
+        "icon": "build-outline",
+        "isActive": true
+      },
+      {
+        "name": "Smart Devices",
+        "description": "Install smart locks, lights, cameras",
+        "icon": "wifi-outline",
+        "isActive": true
+      },
+      {
+        "name": "Vastu Consultation",
+        "description": "Home energy and layout advice",
+        "icon": "compass-outline",
+        "isActive": true
+      },
+      {
+        "name": "Wallpaper Application",
+        "description": "Apply decorative wall coverings",
+        "icon": "image-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Home Services",
+    "description": "Electrical, plumbing, carpentry, appliance repair, pest control",
+    "icon": "home-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Appliance Repair",
+        "description": "Fridge, AC, washing machine",
+        "icon": "cog-outline",
+        "isActive": true
+      },
+      {
+        "name": "Carpentry",
+        "description": "Furniture repair and setup",
+        "icon": "hammer-outline",
+        "isActive": true
+      },
+      {
+        "name": "Ceiling Fan Installation",
+        "description": "Install or replace ceiling fans",
+        "icon": "fan-outline",
+        "isActive": true
+      },
+      {
+        "name": "Door Lock Repair",
+        "description": "Fix or replace locks and handles",
+        "icon": "lock-closed-outline",
+        "isActive": true
+      },
+      {
+        "name": "Electrical",
+        "description": "Wiring, lighting, repairs",
+        "icon": "flash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Pest Control",
+        "description": "Termite, mosquito, rodent removal",
+        "icon": "bug-outline",
+        "isActive": true
+      },
+      {
+        "name": "Plumbing",
+        "description": "Fix leaks, install fixtures",
+        "icon": "water-outline",
+        "isActive": true
+      },
+      {
+        "name": "Solar Panel Setup",
+        "description": "Install and maintain solar systems",
+        "icon": "sunny-outline",
+        "isActive": true
+      },
+      {
+        "name": "Wall Mounting",
+        "description": "Mount TVs, shelves, and decor",
+        "icon": "tv-outline",
+        "isActive": true
+      },
+      {
+        "name": "Water Tank Installation",
+        "description": "Setup and connect water tanks",
+        "icon": "cube-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Medical & Wellness Help",
+    "description": "Nurse on call, physiotherapy, health monitoring, hospital companion",
+    "icon": "medkit-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "BP Monitoring",
+        "description": "Track blood pressure regularly",
+        "icon": "speedometer-outline",
+        "isActive": true
+      },
+      {
+        "name": "Diabetes Check",
+        "description": "Blood sugar monitoring",
+        "icon": "analytics-outline",
+        "isActive": true
+      },
+      {
+        "name": "Elderly Mobility Support",
+        "description": "Help with walking and movement",
+        "icon": "walk-outline",
+        "isActive": true
+      },
+      {
+        "name": "Health Monitoring",
+        "description": "Vitals tracking and alerts",
+        "icon": "pulse-outline",
+        "isActive": true
+      },
+      {
+        "name": "Hospital Companion",
+        "description": "Stay with patient during visits",
+        "icon": "bed-outline",
+        "isActive": true
+      },
+      {
+        "name": "Medical Equipment Setup",
+        "description": "Install and explain usage",
+        "icon": "construct-outline",
+        "isActive": true
+      },
+      {
+        "name": "Nurse on Call",
+        "description": "Basic medical care at home",
+        "icon": "medical-outline",
+        "isActive": true
+      },
+      {
+        "name": "Physiotherapy",
+        "description": "Recovery and mobility support",
+        "icon": "body-outline",
+        "isActive": true
+      },
+      {
+        "name": "Post-Surgery Care",
+        "description": "Support during recovery",
+        "icon": "shield-checkmark-outline",
+        "isActive": true
+      },
+      {
+        "name": "Wound Dressing",
+        "description": "Clean and dress minor wounds",
+        "icon": "bandage-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Mobility & Companion Services",
+    "description": "Pick/drop, co-traveller, senior escort, travel buddy",
+    "icon": "car-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Airport Assistance",
+        "description": "Check-in and boarding help",
+        "icon": "airplane-outline",
+        "isActive": true
+      },
+      {
+        "name": "Co-Traveller",
+        "description": "Travel together for safety or fun",
+        "icon": "airplane-outline",
+        "isActive": true
+      },
+      {
+        "name": "Local Errand Ride",
+        "description": "Short-distance transport help",
+        "icon": "bicycle-outline",
+        "isActive": true
+      },
+      {
+        "name": "Long Drive Partner",
+        "description": "Company for long-distance travel",
+        "icon": "navigate-outline",
+        "isActive": true
+      },
+      {
+        "name": "Pick/Drop",
+        "description": "Transport to/from locations",
+        "icon": "car-outline",
+        "isActive": true
+      },
+      {
+        "name": "Route Planning Help",
+        "description": "Suggest safe and fast routes",
+        "icon": "map-outline",
+        "isActive": true
+      },
+      {
+        "name": "Senior Escort",
+        "description": "Help elderly with travel",
+        "icon": "walk-outline",
+        "isActive": true
+      },
+      {
+        "name": "Train Station Help",
+        "description": "Luggage and boarding support",
+        "icon": "train-outline",
+        "isActive": true
+      },
+      {
+        "name": "Travel Buddy",
+        "description": "Companion for trips",
+        "icon": "globe-outline",
+        "isActive": true
+      },
+      {
+        "name": "Wheelchair Companion",
+        "description": "Assist with mobility and comfort",
+        "icon": "accessibility-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Personal Styling & Occasion Help",
+    "description": "Saree draping, makeup, outfit help, jewelry setup",
+    "icon": "shirt-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Event Styling",
+        "description": "Complete look for special events",
+        "icon": "star-outline",
+        "isActive": true
+      },
+      {
+        "name": "Fashion Consultation",
+        "description": "Trendy and seasonal styling tips",
+        "icon": "glasses-outline",
+        "isActive": true
+      },
+      {
+        "name": "Festival Look Setup",
+        "description": "Traditional and festive styling",
+        "icon": "sparkles-outline",
+        "isActive": true
+      },
+      {
+        "name": "Grooming Advice",
+        "description": "Tips for skincare and hygiene",
+        "icon": "leaf-outline",
+        "isActive": true
+      },
+      {
+        "name": "Hair Styling",
+        "description": "Braiding, blow-dry, updos",
+        "icon": "cut-outline",
+        "isActive": true
+      },
+      {
+        "name": "Jewelry Setup",
+        "description": "Matching and wearing accessories",
+        "icon": "diamond-outline",
+        "isActive": true
+      },
+      {
+        "name": "Makeup",
+        "description": "Basic or event-ready styling",
+        "icon": "color-palette-outline",
+        "isActive": true
+      },
+      {
+        "name": "Outfit Help",
+        "description": "Choosing and coordinating clothes",
+        "icon": "shirt-outline",
+        "isActive": true
+      },
+      {
+        "name": "Saree Draping",
+        "description": "Traditional wear assistance",
+        "icon": "woman-outline",
+        "isActive": true
+      },
+      {
+        "name": "Wardrobe Planning",
+        "description": "Organize and plan outfits",
+        "icon": "briefcase-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Sports & Physical Training",
+    "description": "Coaching for cricket, yoga, fitness, martial arts",
+    "icon": "fitness-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Cricket Coaching",
+        "description": "Batting, bowling, fielding",
+        "icon": "baseball-outline",
+        "isActive": true
+      },
+      {
+        "name": "Fitness Training",
+        "description": "Weight loss, strength, cardio",
+        "icon": "barbell-outline",
+        "isActive": true
+      },
+      {
+        "name": "Gym Setup Advice",
+        "description": "Help with home gym planning",
+        "icon": "fitness-outline",
+        "isActive": true
+      },
+      {
+        "name": "Injury Recovery Support",
+        "description": "Rehab and mobility exercises",
+        "icon": "medkit-outline",
+        "isActive": true
+      },
+      {
+        "name": "Kids Sports Coaching",
+        "description": "Fun and skill-based training",
+        "icon": "happy-outline",
+        "isActive": true
+      },
+      {
+        "name": "Martial Arts",
+        "description": "Karate, taekwondo, self-defense",
+        "icon": "shield-outline",
+        "isActive": true
+      },
+      {
+        "name": "Outdoor Games Facilitation",
+        "description": "Organize and lead group sports",
+        "icon": "walk-outline",
+        "isActive": true
+      },
+      {
+        "name": "Personal Trainer",
+        "description": "One-on-one fitness coaching",
+        "icon": "person-outline",
+        "isActive": true
+      },
+      {
+        "name": "Yoga",
+        "description": "Asanas, breathing, meditation",
+        "icon": "leaf-outline",
+        "isActive": true
+      },
+      {
+        "name": "Zumba",
+        "description": "Dance-based fitness sessions",
+        "icon": "musical-notes-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Study & Learning Support",
+    "description": "Tuitions, study buddy, assignment help, skill learning",
+    "icon": "school-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Assignment Help",
+        "description": "Homework and project support",
+        "icon": "document-text-outline",
+        "isActive": true
+      },
+      {
+        "name": "Career Counseling",
+        "description": "Explore career paths and goals",
+        "icon": "briefcase-outline",
+        "isActive": true
+      },
+      {
+        "name": "Coding Mentorship",
+        "description": "Learn programming with guidance",
+        "icon": "code-slash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Exam Prep",
+        "description": "Mock tests and revision plans",
+        "icon": "clipboard-outline",
+        "isActive": true
+      },
+      {
+        "name": "Group Study Facilitation",
+        "description": "Organize and lead study groups",
+        "icon": "chatbubbles-outline",
+        "isActive": true
+      },
+      {
+        "name": "Online Class Setup",
+        "description": "Help with virtual learning tools",
+        "icon": "videocam-outline",
+        "isActive": true
+      },
+      {
+        "name": "Project Guidance",
+        "description": "Support for academic projects",
+        "icon": "folder-outline",
+        "isActive": true
+      },
+      {
+        "name": "Skill Learning",
+        "description": "Coding, design, languages",
+        "icon": "laptop-outline",
+        "isActive": true
+      },
+      {
+        "name": "Study Buddy",
+        "description": "Peer learning and motivation",
+        "icon": "people-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tuitions",
+        "description": "Subject-wise academic help",
+        "icon": "school-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Teaching & Coaching Services",
+    "description": "Academic tutoring, music/dance/art classes, language coaching",
+    "icon": "book-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Academic Tutoring",
+        "description": "School and college subjects",
+        "icon": "book-outline",
+        "isActive": true
+      },
+      {
+        "name": "Coding Bootcamp",
+        "description": "Intensive programming sessions",
+        "icon": "code-slash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Creative Writing Help",
+        "description": "Storytelling and expression",
+        "icon": "create-outline",
+        "isActive": true
+      },
+      {
+        "name": "Debate Training",
+        "description": "Argument structure and rebuttals",
+        "icon": "chatbox-outline",
+        "isActive": true
+      },
+      {
+        "name": "Exam Strategy",
+        "description": "Planning and stress management",
+        "icon": "clipboard-outline",
+        "isActive": true
+      },
+      {
+        "name": "Language Coaching",
+        "description": "Spoken and written fluency",
+        "icon": "chatbubble-outline",
+        "isActive": true
+      },
+      {
+        "name": "Music/Dance/Art Classes",
+        "description": "Creative skill coaching",
+        "icon": "musical-notes-outline",
+        "isActive": true
+      },
+      {
+        "name": "Public Speaking",
+        "description": "Confidence and delivery skills",
+        "icon": "megaphone-outline",
+        "isActive": true
+      },
+      {
+        "name": "Reading Club Facilitation",
+        "description": "Organize and lead book groups",
+        "icon": "library-outline",
+        "isActive": true
+      },
+      {
+        "name": "Soft Skills Coaching",
+        "description": "Communication and teamwork",
+        "icon": "people-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Vehicle Services",
+    "description": "Car wash, two-wheeler repair, battery jumpstart",
+    "icon": "bicycle-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Battery Jumpstart",
+        "description": "Help with dead battery",
+        "icon": "flash-outline",
+        "isActive": true
+      },
+      {
+        "name": "Car Wash",
+        "description": "Exterior and interior cleaning",
+        "icon": "car-outline",
+        "isActive": true
+      },
+      {
+        "name": "Fuel Delivery",
+        "description": "Emergency fuel supply",
+        "icon": "flame-outline",
+        "isActive": true
+      },
+      {
+        "name": "Headlight Fix",
+        "description": "Replace or adjust headlights",
+        "icon": "bulb-outline",
+        "isActive": true
+      },
+      {
+        "name": "Interior Cleaning",
+        "description": "Vacuum and sanitize cabin",
+        "icon": "sparkles-outline",
+        "isActive": true
+      },
+      {
+        "name": "License Renewal Help",
+        "description": "Assist with RTO paperwork",
+        "icon": "document-outline",
+        "isActive": true
+      },
+      {
+        "name": "Oil Change Reminder",
+        "description": "Track and notify oil changes",
+        "icon": "timer-outline",
+        "isActive": true
+      },
+      {
+        "name": "Roadside Assistance",
+        "description": "Help during breakdowns",
+        "icon": "warning-outline",
+        "isActive": true
+      },
+      {
+        "name": "Tire Check",
+        "description": "Inspect and inflate tires",
+        "icon": "speedometer-outline",
+        "isActive": true
+      },
+      {
+        "name": "Two-Wheeler Repair",
+        "description": "Basic servicing and fixes",
+        "icon": "bicycle-outline",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Wellness & Mindfulness",
+    "description": "Meditation partner, walking buddy, emotional check-ins",
+    "icon": "heart-outline",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Affirmation Practice",
+        "description": "Daily positive affirmations",
+        "icon": "happy-outline",
+        "isActive": true
+      },
+      {
+        "name": "Breathing Exercises",
+        "description": "Practice calming breathwork",
+        "icon": "cloud-outline",
+        "isActive": true
+      },
+      {
+        "name": "Emotional Check-ins",
+        "description": "Regular support calls",
+        "icon": "chatbubble-ellipses-outline",
+        "isActive": true
+      },
+      {
+        "name": "Gratitude Journaling",
+        "description": "Reflect and write together",
+        "icon": "book-outline",
+        "isActive": true
+      },
+      {
+        "name": "Meditation Partner",
+        "description": "Guided or silent sessions",
+        "icon": "leaf-outline",
+        "isActive": true
+      },
+      {
+        "name": "Mindful Eating Support",
+        "description": "Slow, intentional meal habits",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "name": "Nature Walks",
+        "description": "Connect with nature mindfully",
+        "icon": "tree-outline",
+        "isActive": true
+      },
+      {
+        "name": "Sleep Routine Help",
+        "description": "Establish healthy sleep habits",
+        "icon": "moon-outline",
+        "isActive": true
+      },
+      {
+        "name": "Stress Relief Chat",
+        "description": "Talk through stressful moments",
+        "icon": "alert-outline",
+        "isActive": true
+      },
+      {
+        "name": "Walking Buddy",
+        "description": "Companion for walks",
+        "icon": "walk-outline",
+        "isActive": true
+      }
+    ]
+  }
+]

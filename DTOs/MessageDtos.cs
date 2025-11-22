@@ -27,6 +27,7 @@ public class MessagesListResponse
     public int UnreadCount { get; set; }
     public Guid? ProviderId { get; set; }
     public List<QuoteResponseDto> Quotes { get; set; } = new();
+    public string RequestStatus { get; set; } = string.Empty;
 }
 
 public class AssignProviderDto

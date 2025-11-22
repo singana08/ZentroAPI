@@ -1,0 +1,80 @@
+[
+  {
+    "name": "Home Services",
+    "description": "Services related to home maintenance and improvement",
+    "icon": "home-icon.png",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Plumbing",
+        "description": "Water pipe installation, repair, and maintenance",
+        "icon": "plumbing-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Electrical",
+        "description": "Electrical wiring, repair, and installation services",
+        "icon": "electrical-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Cleaning",
+        "description": "House cleaning and maintenance services",
+        "icon": "cleaning-icon.png",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Beauty & Wellness",
+    "description": "Personal care and wellness services",
+    "icon": "beauty-icon.png",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Hair Styling",
+        "description": "Hair cutting, styling, and treatment services",
+        "icon": "hair-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Massage Therapy",
+        "description": "Therapeutic and relaxation massage services",
+        "icon": "massage-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Skincare",
+        "description": "Facial treatments and skincare services",
+        "icon": "skincare-icon.png",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "name": "Technology",
+    "description": "Technology and digital services",
+    "icon": "tech-icon.png",
+    "isActive": true,
+    "subcategories": [
+      {
+        "name": "Computer Repair",
+        "description": "Computer and laptop repair services",
+        "icon": "computer-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Mobile Repair",
+        "description": "Smartphone and tablet repair services",
+        "icon": "mobile-icon.png",
+        "isActive": true
+      },
+      {
+        "name": "Web Development",
+        "description": "Website design and development services",
+        "icon": "web-icon.png",
+        "isActive": true
+      }
+    ]
+  }
+]

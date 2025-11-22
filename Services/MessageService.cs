@@ -114,8 +114,10 @@ public class MessageService : IMessageService
     {
         try
         {
-            // Verify access to request
-            var serviceRequest = await _context.ServiceRequests.FindAsync(requestId);
+            // Verify access to request - use AsNoTracking to get fresh data
+            var serviceRequest = await _context.ServiceRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(sr => sr.Id == requestId);
             if (serviceRequest == null)
                 return (false, "Service request not found", null);
 
@@ -166,14 +168,19 @@ public class MessageService : IMessageService
                 })
                 .ToListAsync();
 
+            _logger.LogInformation($"Service request {requestId} status: {serviceRequest.Status}, AssignedProviderId: {serviceRequest.AssignedProviderId}");
+
             var response = new MessagesListResponse
             {
                 Messages = messages,
                 TotalCount = messages.Count,
                 UnreadCount = unreadCount,
                 ProviderId = serviceRequest.AssignedProviderId,
-                Quotes = quotes
+                Quotes = quotes,
+                RequestStatus = serviceRequest.Status.ToString()
             };
+
+            _logger.LogInformation($"Returning RequestStatus: {response.RequestStatus} for request {requestId}");
 
             return (true, "Messages retrieved successfully", response);
         }
@@ -577,6 +584,10 @@ public class MessageService : IMessageService
                 
                 if (serviceRequest != null)
                 {
+                    // Skip completed service requests
+                    if (serviceRequest.Status == ServiceRequestStatus.Completed)
+                        continue;
+                        
                     serviceTitle = $"{serviceRequest.SubCategory} - {serviceRequest.MainCategory}";
                 }
                 
@@ -630,7 +641,8 @@ public class MessageService : IMessageService
                     LastMessageTime = chat.LastMessageTime,
                     UnreadCount = chat.UnreadCount,
                     IsOnline = false,
-                    Quotes = quotes
+                    Quotes = quotes,
+                    RequestStatus = serviceRequest?.Status.ToString() ?? "Unknown"
                 });
             }
             
