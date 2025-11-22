@@ -2,6 +2,7 @@ using HaluluAPI.DTOs;
 using HaluluAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace HaluluAPI.Controllers;
 
@@ -115,6 +116,70 @@ public class CategoryController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
             {
                 Message = "An error occurred while retrieving the category"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Import categories and subcategories from categories-data.json file
+    /// </summary>
+    /// <returns>Import result with statistics</returns>
+    [HttpPost("import")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(CategoryImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ImportCategories()
+    {
+        try
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "categories-data.json");
+            
+            if (!System.IO.File.Exists(filePath))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Message = "categories-data.json file not found in project root"
+                });
+            }
+
+            _logger.LogInformation("Starting category import from file: {FilePath}", filePath);
+
+            var jsonContent = await System.IO.File.ReadAllTextAsync(filePath);
+
+            var categories = System.Text.Json.JsonSerializer.Deserialize<List<ImportCategoryDto>>(jsonContent, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (categories == null || !categories.Any())
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Message = "No valid categories found in the JSON file"
+                });
+            }
+
+            var result = await _categoryService.ImportCategoriesAsync(categories);
+
+            _logger.LogInformation("Category import completed: {Message}", result.Message);
+
+            return Ok(result);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Invalid JSON format in categories-data.json");
+            return BadRequest(new ErrorResponse
+            {
+                Message = "Invalid JSON format in categories-data.json file"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error importing categories from file");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+            {
+                Message = "An error occurred while importing categories"
             });
         }
     }

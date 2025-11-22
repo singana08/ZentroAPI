@@ -19,4 +19,11 @@ public interface ICategoryService
     /// <param name="categoryId">The category ID</param>
     /// <returns>Category with associated active subcategories, or null if not found</returns>
     Task<CategoryWithSubcategoriesDto?> GetCategoryWithSubcategoriesAsync(int categoryId);
+
+    /// <summary>
+    /// Imports categories and subcategories from JSON data
+    /// </summary>
+    /// <param name="categories">List of categories to import</param>
+    /// <returns>Import result with statistics</returns>
+    Task<CategoryImportResponse> ImportCategoriesAsync(List<ImportCategoryDto> categories);
 }

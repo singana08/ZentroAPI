@@ -11,6 +11,7 @@ public class ChatListItemDto
     public int UnreadCount { get; set; }
     public bool IsOnline { get; set; }
     public List<QuoteResponseDto> Quotes { get; set; } = new();
+    public string RequestStatus { get; set; } = string.Empty;
 }
 
 public class ChatListResponse
