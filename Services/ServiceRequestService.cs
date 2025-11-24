@@ -256,7 +256,8 @@ public class ServiceRequestService : IServiceRequestService
 
             // Validate pagination parameters
             if (page < 1) page = 1;
-            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 1000) pageSize = 1000;
 
             var query = _dbContext.ServiceRequests
                 .Where(sr => sr.RequesterId == userId)
@@ -395,7 +396,8 @@ public class ServiceRequestService : IServiceRequestService
         {
             // Validate pagination parameters
             if (page < 1) page = 1;
-            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 1000) pageSize = 1000;
 
             var query = _dbContext.ServiceRequests.AsNoTracking();
 

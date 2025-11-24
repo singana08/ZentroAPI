@@ -26,4 +26,8 @@ public class ProfileDto
     public string? PricingModel { get; set; }
     public decimal? Rating { get; set; }
     public decimal? Earnings { get; set; }
+    
+    // Requester specific fields
+    public int? TotalBookings { get; set; }
+    public int? CompletedBookings { get; set; }
 }
