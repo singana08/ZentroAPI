@@ -55,6 +55,25 @@ public class UserController : ControllerBase
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.Id == requester.UserId);
                 
+                // Calculate requester statistics with logging
+                var totalBookings = await _context.ServiceRequests
+                    .AsNoTracking()
+                    .CountAsync(sr => sr.RequesterId == requester.Id);
+                    
+                var completedBookings = await _context.ServiceRequests
+                    .AsNoTracking()
+                    .CountAsync(sr => sr.RequesterId == requester.Id && sr.Status == Models.ServiceRequestStatus.Completed);
+                    
+                // Debug: Get actual service requests for this requester
+                var debugRequests = await _context.ServiceRequests
+                    .AsNoTracking()
+                    .Where(sr => sr.RequesterId == requester.Id)
+                    .Select(sr => new { sr.Id, sr.Status, sr.CreatedAt })
+                    .ToListAsync();
+                    
+                _logger.LogInformation($"Requester {requester.Id}: TotalBookings={totalBookings}, CompletedBookings={completedBookings}");
+                _logger.LogInformation($"Debug - Service requests: {string.Join(", ", debugRequests.Select(r => $"{r.Id}:{r.Status}"))}");
+                
                 return Ok(new ProfileDto
                 {
                     Id = requester.Id,
@@ -69,7 +88,9 @@ public class UserController : ControllerBase
                     HasRequesterProfile = userWithProfiles?.RequesterProfile != null,
                     HasProviderProfile = userWithProfiles?.ProviderProfile != null,
                     IsProfileCompleted = userWithProfiles?.IsProfileCompleted ?? false,
-                    DefaultRole = userWithProfiles?.DefaultRole
+                    DefaultRole = userWithProfiles?.DefaultRole,
+                    TotalBookings = totalBookings,
+                    CompletedBookings = completedBookings
                 });
             }
 
