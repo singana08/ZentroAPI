@@ -5,7 +5,7 @@ namespace HaluluAPI.Services;
 public interface IMessageService
 {
     Task<(bool Success, string Message, MessageResponseDto? Data)> SendMessageAsync(Guid senderId, SendMessageDto request);
-    Task<(bool Success, string Message, MessagesListResponse? Data)> GetMessagesAsync(Guid requestId, Guid profileId);
+    Task<(bool Success, string Message, MessagesListResponse? Data)> GetMessagesAsync(Guid requestId, Guid profileId, Guid otherUserId);
     Task<(bool Success, string Message)> AssignProviderAsync(Guid requesterId, AssignProviderDto request);
     Task<(bool Success, string Message)> RejectRequestAsync(Guid providerId, RequestActionDto request);
     Task<(bool Success, string Message)> ReopenRequestAsync(Guid requesterId, RequestActionDto request);
