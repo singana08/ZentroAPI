@@ -51,18 +51,18 @@ public class MessageController : ControllerBase
     }
 
     /// <summary>
-    /// Get chat messages for a service request
+    /// Get chat messages for a service request between specific users
     /// </summary>
     [HttpGet]
     [Authorize]
     [ProducesResponseType(typeof(MessagesListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMessages([FromQuery] Guid requestId)
+    public async Task<IActionResult> GetMessages([FromQuery] Guid requestId, [FromQuery] Guid otherUserId)
     {
         try
         {
-            _logger.LogInformation($"GetMessages called with requestId: {requestId}");
+            _logger.LogInformation($"GetMessages called with requestId: {requestId}, otherUserId: {otherUserId}");
             
             var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
             if (!profileId.HasValue)
@@ -71,9 +71,9 @@ public class MessageController : ControllerBase
                 return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
             }
 
-            _logger.LogInformation($"Getting messages for requestId: {requestId}, profileId: {profileId.Value}");
+            _logger.LogInformation($"Getting messages for requestId: {requestId}, profileId: {profileId.Value}, otherUserId: {otherUserId}");
             
-            var (success, message, data) = await _messageService.GetMessagesAsync(requestId, profileId.Value);
+            var (success, message, data) = await _messageService.GetMessagesAsync(requestId, profileId.Value, otherUserId);
             
             _logger.LogInformation($"GetMessages result - Success: {success}, Message: {message}, MessageCount: {data?.Messages?.Count ?? 0}");
             

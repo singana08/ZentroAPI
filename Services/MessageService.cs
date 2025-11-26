@@ -110,7 +110,7 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task<(bool Success, string Message, MessagesListResponse? Data)> GetMessagesAsync(Guid requestId, Guid profileId)
+    public async Task<(bool Success, string Message, MessagesListResponse? Data)> GetMessagesAsync(Guid requestId, Guid profileId, Guid otherUserId)
     {
         try
         {
@@ -131,8 +131,13 @@ public class MessageService : IMessageService
             if (!hasAccess)
                 return (false, "Access denied", null);
 
-            var messages = await _context.Messages
-                .Where(m => m.RequestId == requestId)
+            // Always filter messages by conversation participants
+            var messagesQuery = _context.Messages
+                .Where(m => m.RequestId == requestId && 
+                    ((m.SenderId == profileId && m.ReceiverId == otherUserId) ||
+                     (m.SenderId == otherUserId && m.ReceiverId == profileId)));
+
+            var messages = await messagesQuery
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new MessageResponseDto
                 {
@@ -149,11 +154,13 @@ public class MessageService : IMessageService
 
             var unreadCount = messages.Count(m => m.ReceiverId == profileId && !m.IsRead);
 
-            // Get quotes for this request
-            var quotes = await _context.Quotes
+            // Get quotes for this conversation (filter by otherUserId)
+            var quotesQuery = _context.Quotes
                 .Include(q => q.Provider)
                 .ThenInclude(p => p!.User)
-                .Where(q => q.RequestId == requestId)
+                .Where(q => q.RequestId == requestId && q.ProviderId == otherUserId);
+
+            var quotes = await quotesQuery
                 .Select(q => new QuoteResponseDto
                 {
                     Id = q.Id,
@@ -557,45 +564,61 @@ public class MessageService : IMessageService
     {
         try
         {
-            // Get basic chat data first
-            var basicChats = await _context.Messages
+            // Get conversations grouped by request and other participant
+            var conversations = await _context.Messages
                 .Where(m => m.SenderId == profileId || m.ReceiverId == profileId)
-                .GroupBy(m => m.RequestId)
+                .GroupBy(m => new { m.RequestId, OtherUserId = m.SenderId == profileId ? m.ReceiverId : m.SenderId })
                 .Select(g => new
                 {
-                    RequestId = g.Key,
-                    OtherProfileId = g.First().SenderId == profileId ? g.First().ReceiverId : g.First().SenderId,
+                    RequestId = g.Key.RequestId,
+                    OtherUserId = g.Key.OtherUserId,
                     LastMessage = g.OrderByDescending(m => m.Timestamp).First().MessageText,
                     LastMessageTime = g.Max(m => m.Timestamp),
-                    UnreadCount = g.Count(m => m.ReceiverId == profileId && !m.IsRead)
+                    UnreadCount = g.Count(m => m.ReceiverId == profileId && m.SenderId == g.Key.OtherUserId && !m.IsRead)
                 })
                 .ToListAsync();
 
-            // Get service categories and customer names
             var chatList = new List<ChatListItemDto>();
-            foreach (var chat in basicChats)
+            
+            foreach (var conversation in conversations)
             {
                 var serviceRequest = await _context.ServiceRequests
-                    .Where(sr => sr.Id == chat.RequestId)
+                    .FirstOrDefaultAsync(sr => sr.Id == conversation.RequestId);
+                
+                if (serviceRequest?.Status == ServiceRequestStatus.Completed)
+                    continue;
+                
+                string serviceTitle = serviceRequest != null 
+                    ? $"{serviceRequest.SubCategory} - {serviceRequest.MainCategory}"
+                    : "Service";
+                
+                // Get other user name
+                string otherUserName = "User";
+                var requester = await _context.Requesters
+                    .Where(r => r.Id == conversation.OtherUserId)
+                    .Join(_context.Users, r => r.UserId, u => u.Id, (r, u) => u.FullName)
                     .FirstOrDefaultAsync();
                 
-                string serviceTitle = "Service";
-                string customerName = "User";
-                
-                if (serviceRequest != null)
+                if (requester != null)
                 {
-                    // Skip completed service requests
-                    if (serviceRequest.Status == ServiceRequestStatus.Completed)
-                        continue;
-                        
-                    serviceTitle = $"{serviceRequest.SubCategory} - {serviceRequest.MainCategory}";
+                    otherUserName = requester;
+                }
+                else
+                {
+                    var provider = await _context.Providers
+                        .Where(p => p.Id == conversation.OtherUserId)
+                        .Join(_context.Users, p => p.UserId, u => u.Id, (p, u) => u.FullName)
+                        .FirstOrDefaultAsync();
+                    
+                    if (provider != null)
+                        otherUserName = provider;
                 }
                 
-                // Get quotes for this request
+                // Get quotes for this conversation
                 var quotes = await _context.Quotes
                     .Include(q => q.Provider)
                     .ThenInclude(p => p!.User)
-                    .Where(q => q.RequestId == chat.RequestId)
+                    .Where(q => q.RequestId == conversation.RequestId && q.ProviderId == conversation.OtherUserId)
                     .Select(q => new QuoteResponseDto
                     {
                         Id = q.Id,
@@ -610,36 +633,15 @@ public class MessageService : IMessageService
                     })
                     .ToListAsync();
                 
-                // Get customer name from other profile
-                var requester = await _context.Requesters
-                    .Where(r => r.Id == chat.OtherProfileId)
-                    .Join(_context.Users, r => r.UserId, u => u.Id, (r, u) => u.FullName)
-                    .FirstOrDefaultAsync();
-                
-                if (requester != null)
-                {
-                    customerName = requester;
-                }
-                else
-                {
-                    var provider = await _context.Providers
-                        .Where(p => p.Id == chat.OtherProfileId)
-                        .Join(_context.Users, p => p.UserId, u => u.Id, (p, u) => u.FullName)
-                        .FirstOrDefaultAsync();
-                    
-                    if (provider != null)
-                        customerName = provider;
-                }
-                
                 chatList.Add(new ChatListItemDto
                 {
-                    RequestId = chat.RequestId,
-                    OtherUserId = chat.OtherProfileId,
-                    OtherUserName = customerName,
+                    RequestId = conversation.RequestId,
+                    OtherUserId = conversation.OtherUserId,
+                    OtherUserName = otherUserName,
                     ServiceTitle = serviceTitle,
-                    LastMessage = chat.LastMessage,
-                    LastMessageTime = chat.LastMessageTime,
-                    UnreadCount = chat.UnreadCount,
+                    LastMessage = conversation.LastMessage,
+                    LastMessageTime = conversation.LastMessageTime,
+                    UnreadCount = conversation.UnreadCount,
                     IsOnline = false,
                     Quotes = quotes,
                     RequestStatus = serviceRequest?.Status.ToString() ?? "Unknown"
@@ -647,18 +649,6 @@ public class MessageService : IMessageService
             }
             
             chatList = chatList.OrderByDescending(c => c.LastMessageTime).ToList();
-
-            // TODO: Uncomment joins later if needed for user names and service titles
-            /*
-            .Join(_context.ServiceRequests,
-                chat => chat.RequestId,
-                sr => sr.Id,
-                (chat, sr) => new { chat, ServiceTitle = $"{sr.SubCategory} - {sr.MainCategory}" })
-            .Join(_context.Users,
-                combined => combined.chat.OtherUserId,
-                user => user.Id,
-                (combined, user) => new ChatListItemDto { ... })
-            */
 
             var response = new ChatListResponse
             {
