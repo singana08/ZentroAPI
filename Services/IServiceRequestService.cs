@@ -30,15 +30,7 @@ public interface IServiceRequestService
         Guid userId,
         CreateServiceRequestDto request);
 
-    /// <summary>
-    /// Get a single service request by ID
-    /// </summary>
-    /// <param name="requestId">Service request ID</param>
-    /// <param name="userId">User ID (for authorization)</param>
-    /// <returns>Service request details</returns>
-    Task<(bool Success, string Message, ServiceRequestResponseDto? Data)> GetServiceRequestAsync(
-        Guid requestId,
-        Guid userId);
+
 
     /// <summary>
     /// Get all service requests for a specific user with pagination and filtering

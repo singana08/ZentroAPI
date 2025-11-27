@@ -18,6 +18,17 @@ public class QuoteResponseDto
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public string QuoteStatus { get; set; } = "Pending";
+    
+    /// <summary>
+    /// Indicates whether this quote was accepted by the requester
+    /// </summary>
+    public bool IsAcceptedByRequester { get; set; }
+    
+    /// <summary>
+    /// Indicates whether this quote was accepted by the provider
+    /// </summary>
+    public bool IsAcceptedByProvider { get; set; }
+    
     public DateTime UpdatedAt { get; set; }
     public string? ProviderName { get; set; }
     public decimal? ProviderRating { get; set; }

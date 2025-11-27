@@ -359,7 +359,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("agreements");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.RequestId).IsRequired();
+            entity.Property(e => e.QuoteId).IsRequired();
             entity.Property(e => e.RequesterId).IsRequired();
             entity.Property(e => e.ProviderId).IsRequired();
             entity.Property(e => e.RequesterAccepted).HasDefaultValue(false);
@@ -368,7 +368,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
             
-            entity.HasIndex(e => new { e.RequestId, e.ProviderId }).IsUnique();
+            entity.HasIndex(e => new { e.QuoteId, e.ProviderId }).IsUnique();
             entity.HasIndex(e => e.RequesterId);
             entity.HasIndex(e => e.ProviderId);
             entity.HasIndex(e => e.Status);

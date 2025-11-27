@@ -89,63 +89,7 @@ public class MessageController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Assign provider to request
-    /// </summary>
-    [HttpPost("assign")]
-    [Authorize]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> AssignProvider([FromBody] AssignProviderDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
 
-            var (success, message) = await _messageService.AssignProviderAsync(profileId.Value, request);
-            if (!success)
-                return BadRequest(new ErrorResponse { Message = message });
-
-            return Ok(new { Success = true, Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error assigning provider");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Reject a service request
-    /// </summary>
-    [HttpPost("reject")]
-    [Authorize]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> RejectRequest([FromBody] RequestActionDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
-
-            var (success, message) = await _messageService.RejectRequestAsync(profileId.Value, request);
-            if (!success)
-                return BadRequest(new ErrorResponse { Message = message });
-
-            return Ok(new { Success = true, Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error rejecting request");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
 
     /// <summary>
     /// Reopen a service request

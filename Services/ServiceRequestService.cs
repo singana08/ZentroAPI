@@ -181,57 +181,7 @@ public class ServiceRequestService : IServiceRequestService
         }
     }
 
-    /// <summary>
-    /// Get a single service request by ID
-    /// </summary>
-    public async Task<(bool Success, string Message, ServiceRequestResponseDto? Data)> GetServiceRequestAsync(
-        Guid requestId,
-        Guid userId)
-    {
-        try
-        {
-            // Check if user is requester or provider
-            var isRequester = await _dbContext.Requesters.AsNoTracking().AnyAsync(r => r.Id == userId);
-            var isProvider = await _dbContext.Providers.AsNoTracking().AnyAsync(p => p.Id == userId);
-            
-            if (!isRequester && !isProvider)
-            {
-                _logger.LogWarning($"Profile {userId} not found in requesters or providers");
-                return (false, "Profile not found", null);
-            }
 
-            ServiceRequest? serviceRequest;
-            
-            if (isRequester)
-            {
-                // Requesters can only see their own requests
-                serviceRequest = await _dbContext.ServiceRequests
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(sr => sr.Id == requestId && sr.RequesterId == userId);
-            }
-            else
-            {
-                // Providers can see any open service request
-                serviceRequest = await _dbContext.ServiceRequests
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(sr => sr.Id == requestId);
-            }
-
-            if (serviceRequest == null)
-            {
-                _logger.LogWarning($"Service request {requestId} not found for user {userId}");
-                return (false, "Service request not found", null);
-            }
-
-            var responseDto = MapToResponseDto(serviceRequest, userId);
-            return (true, "Service request retrieved successfully", responseDto);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error retrieving service request {requestId}: {ex.Message}", ex);
-            return (false, "An error occurred while retrieving the service request", null);
-        }
-    }
 
     /// <summary>
     /// Get all service requests for a user with pagination and filtering
@@ -512,17 +462,25 @@ public class ServiceRequestService : IServiceRequestService
                     .Include(q => q.Provider)
                     .ThenInclude(p => p!.User)
                     .Where(q => q.RequestId == serviceRequest.Id)
-                    .Select(q => new QuoteResponseDto
+                    .GroupJoin(_dbContext.Agreements,
+                        q => q.Id,
+                        a => a.QuoteId,
+                        (q, agreements) => new { Quote = q, Agreement = agreements.FirstOrDefault() })
+                    .Select(qa => new QuoteResponseDto
                     {
-                        Id = q.Id,
-                        ProviderId = q.ProviderId,
-                        RequestId = q.RequestId,
-                        Price = q.Price,
-                        Message = q.Message,
-                        CreatedAt = q.CreatedAt,
-                        ExpiresAt = q.ExpiresAt,
-                        ProviderName = q.Provider!.User!.FullName,
-                        ProviderRating = q.Provider.Rating
+                        Id = qa.Quote.Id,
+                        ProviderId = qa.Quote.ProviderId,
+                        RequestId = qa.Quote.RequestId,
+                        Price = qa.Quote.Price,
+                        Message = qa.Quote.Message,
+                        CreatedAt = qa.Quote.CreatedAt,
+                        ExpiresAt = qa.Quote.ExpiresAt,
+                        QuoteStatus = qa.Quote.Status,
+                        IsAcceptedByRequester = qa.Agreement != null && qa.Agreement.RequesterAccepted,
+                        IsAcceptedByProvider = qa.Agreement != null && qa.Agreement.ProviderAccepted,
+                        UpdatedAt = qa.Quote.UpdatedAt,
+                        ProviderName = qa.Quote.Provider!.User!.FullName,
+                        ProviderRating = qa.Quote.Provider.Rating
                     })
                     .ToListAsync()
                     .Result;
@@ -550,6 +508,44 @@ public class ServiceRequestService : IServiceRequestService
             }
         }
 
+        // Get provider status if user is a provider
+        string? providerStatus = null;
+        if (currentUserId.HasValue && _dbContext.Providers.AsNoTracking().Any(p => p.Id == currentUserId.Value))
+        {
+            var status = _dbContext.ProviderRequestStatuses
+                .AsNoTracking()
+                .FirstOrDefault(prs => prs.ProviderId == currentUserId.Value && prs.RequestId == serviceRequest.Id);
+            providerStatus = status?.Status.ToString() ?? "New";
+        }
+
+        // Get workflow status if provider is assigned
+        WorkflowStatusResponseDto? workflowStatus = null;
+        if (serviceRequest.AssignedProviderId.HasValue)
+        {
+            var workflow = _dbContext.WorkflowStatuses
+                .AsNoTracking()
+                .FirstOrDefault(ws => ws.RequestId == serviceRequest.Id && ws.ProviderId == serviceRequest.AssignedProviderId.Value);
+            if (workflow != null)
+            {
+                workflowStatus = new WorkflowStatusResponseDto
+                {
+                    Id = workflow.Id,
+                    RequestId = workflow.RequestId,
+                    ProviderId = workflow.ProviderId,
+                    IsAssigned = workflow.IsAssigned,
+                    AssignedDate = workflow.AssignedDate,
+                    IsInProgress = workflow.IsInProgress,
+                    InProgressDate = workflow.InProgressDate,
+                    IsCheckedIn = workflow.IsCheckedIn,
+                    CheckedInDate = workflow.CheckedInDate,
+                    IsCompleted = workflow.IsCompleted,
+                    CompletedDate = workflow.CompletedDate,
+                    CreatedAt = workflow.CreatedAt,
+                    UpdatedAt = workflow.UpdatedAt
+                };
+            }
+        }
+
         return new ServiceRequestResponseDto
         {
             Id = serviceRequest.Id,
@@ -566,10 +562,11 @@ public class ServiceRequestService : IServiceRequestService
             AdditionalNotes = serviceRequest.AdditionalNotes,
             AssignedProviderId = serviceRequest.AssignedProviderId,
             RequestStatus = serviceRequest.Status.ToString(),
-            ProviderStatus = null, // Requesters don't see provider status
+            ProviderStatus = providerStatus,
             QuoteCount = quotes.Count,
             Quotes = quotes,
             Review = review,
+            WorkflowStatus = workflowStatus,
             CreatedAt = serviceRequest.CreatedAt,
             UpdatedAt = serviceRequest.UpdatedAt,
             Coordinates = serviceRequest.Latitude.HasValue && serviceRequest.Longitude.HasValue 
