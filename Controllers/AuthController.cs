@@ -211,7 +211,7 @@ public class AuthController : ControllerBase
     [Authorize]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetCurrentUser()
+    public async Task<IActionResult> Me()
     {
         var userId = User.FindFirst("user_id")?.Value;
 

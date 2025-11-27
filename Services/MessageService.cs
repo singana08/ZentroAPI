@@ -161,17 +161,24 @@ public class MessageService : IMessageService
                 .Where(q => q.RequestId == requestId && q.ProviderId == otherUserId);
 
             var quotes = await quotesQuery
-                .Select(q => new QuoteResponseDto
+                .GroupJoin(_context.Agreements,
+                    q => q.Id,
+                    a => a.QuoteId,
+                    (q, agreements) => new { Quote = q, Agreement = agreements.FirstOrDefault() })
+                .Select(qa => new QuoteResponseDto
                 {
-                    Id = q.Id,
-                    ProviderId = q.ProviderId,
-                    RequestId = q.RequestId,
-                    Price = q.Price,
-                    Message = q.Message,
-                    CreatedAt = q.CreatedAt,
-                    ExpiresAt = q.ExpiresAt,
-                    ProviderName = q.Provider!.User!.FullName,
-                    ProviderRating = q.Provider.Rating
+                    Id = qa.Quote.Id,
+                    ProviderId = qa.Quote.ProviderId,
+                    RequestId = qa.Quote.RequestId,
+                    Price = qa.Quote.Price,
+                    Message = qa.Quote.Message,
+                    CreatedAt = qa.Quote.CreatedAt,
+                    ExpiresAt = qa.Quote.ExpiresAt,
+                    ProviderName = qa.Quote.Provider!.User!.FullName,
+                    ProviderRating = qa.Quote.Provider.Rating,
+                    QuoteStatus = qa.Quote.Status,
+                    IsAcceptedByRequester = qa.Agreement != null && qa.Agreement.RequesterAccepted,
+                    IsAcceptedByProvider = qa.Agreement != null && qa.Agreement.ProviderAccepted
                 })
                 .ToListAsync();
 
@@ -198,74 +205,7 @@ public class MessageService : IMessageService
         }
     }
 
-    public async Task<(bool Success, string Message)> AssignProviderAsync(Guid requesterId, AssignProviderDto request)
-    {
-        try
-        {
-            var serviceRequest = await _context.ServiceRequests.FindAsync(request.RequestId);
-            if (serviceRequest == null)
-                return (false, "Service request not found");
 
-            if (serviceRequest.RequesterId != requesterId)
-                return (false, "Access denied");
-
-            if (serviceRequest.Status != ServiceRequestStatus.Open && serviceRequest.Status != ServiceRequestStatus.Reopened)
-                return (false, "Service request is not available for assignment");
-
-            var provider = await _context.Providers.FindAsync(request.ProviderId);
-            if (provider == null)
-                return (false, "Provider not found");
-
-            serviceRequest.AssignedProviderId = request.ProviderId;
-            serviceRequest.Status = ServiceRequestStatus.Assigned;
-            serviceRequest.UpdatedAt = DateTime.UtcNow;
-
-            // Create initial workflow status record
-            var workflowStatus = new WorkflowStatus
-            {
-                RequestId = request.RequestId,
-                ProviderId = request.ProviderId,
-                IsAssigned = true,
-                AssignedDate = DateTime.UtcNow
-            };
-            _context.WorkflowStatuses.Add(workflowStatus);
-
-            await _context.SaveChangesAsync();
-
-            return (true, "Provider assigned successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error assigning provider");
-            return (false, "Failed to assign provider");
-        }
-    }
-
-    public async Task<(bool Success, string Message)> RejectRequestAsync(Guid providerId, RequestActionDto request)
-    {
-        try
-        {
-            var serviceRequest = await _context.ServiceRequests.FindAsync(request.RequestId);
-            if (serviceRequest == null)
-                return (false, "Service request not found");
-
-            if (serviceRequest.AssignedProviderId != providerId)
-                return (false, "Access denied");
-
-            serviceRequest.Status = ServiceRequestStatus.Rejected;
-            serviceRequest.AssignedProviderId = null;
-            serviceRequest.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            return (true, "Request rejected successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error rejecting request");
-            return (false, "Failed to reject request");
-        }
-    }
 
     public async Task<(bool Success, string Message)> ReopenRequestAsync(Guid requesterId, RequestActionDto request)
     {
@@ -296,6 +236,113 @@ public class MessageService : IMessageService
         }
     }
 
+    public async Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetProviderJobsAsync(Guid providerId, int page, int pageSize)
+    {
+        try
+        {
+            _logger.LogInformation($"Getting provider jobs for provider {providerId}, page {page}, pageSize {pageSize}");
+            
+            // Get requests where provider has quoted OR is assigned
+            var quotedRequestIds = await _context.Quotes
+                .Where(q => q.ProviderId == providerId)
+                .Select(q => q.RequestId)
+                .ToListAsync();
+
+            var baseQuery = _context.ServiceRequests
+                .Where(sr => quotedRequestIds.Contains(sr.Id) || sr.AssignedProviderId == providerId)
+                .AsNoTracking();
+
+            var total = await baseQuery.CountAsync();
+
+            var serviceRequests = await baseQuery
+                .OrderByDescending(sr => sr.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var requests = new List<ServiceRequestResponseDto>();
+            foreach (var serviceRequest in serviceRequests)
+            {
+                var quotes = await _context.Quotes
+                    .Include(q => q.Provider)
+                    .ThenInclude(p => p!.User)
+                    .Where(q => q.RequestId == serviceRequest.Id && q.ProviderId == providerId)
+                    .GroupJoin(_context.Agreements,
+                        q => q.Id,
+                        a => a.QuoteId,
+                        (q, agreements) => new { Quote = q, Agreement = agreements.FirstOrDefault() })
+                    .Select(qa => new QuoteResponseDto
+                    {
+                        Id = qa.Quote.Id,
+                        ProviderId = qa.Quote.ProviderId,
+                        RequestId = qa.Quote.RequestId,
+                        Price = qa.Quote.Price,
+                        Message = qa.Quote.Message,
+                        CreatedAt = qa.Quote.CreatedAt,
+                        ExpiresAt = qa.Quote.ExpiresAt,
+                        ProviderName = qa.Quote.Provider!.User!.FullName,
+                        ProviderRating = qa.Quote.Provider.Rating,
+                        QuoteStatus = qa.Quote.Status,
+                        IsAcceptedByRequester = qa.Agreement != null && qa.Agreement.RequesterAccepted,
+                        IsAcceptedByProvider = qa.Agreement != null && qa.Agreement.ProviderAccepted
+                    })
+                    .ToListAsync();
+
+                // Get assigned provider name if exists
+                string? assignedProviderName = null;
+                if (serviceRequest.AssignedProviderId.HasValue)
+                {
+                    assignedProviderName = await _context.Providers
+                        .Where(p => p.Id == serviceRequest.AssignedProviderId.Value)
+                        .Join(_context.Users, p => p.UserId, u => u.Id, (p, u) => u.FullName)
+                        .FirstOrDefaultAsync();
+                }
+
+                requests.Add(new ServiceRequestResponseDto
+                {
+                    Id = serviceRequest.Id,
+                    UserId = serviceRequest.RequesterId,
+                    BookingType = serviceRequest.BookingType.ToString(),
+                    MainCategory = serviceRequest.MainCategory,
+                    SubCategory = serviceRequest.SubCategory,
+                    Title = serviceRequest.Title,
+                    Description = serviceRequest.Description,
+                    Date = serviceRequest.Date,
+                    Time = serviceRequest.Time,
+                    Location = serviceRequest.Location,
+                    Notes = serviceRequest.Notes,
+                    AdditionalNotes = serviceRequest.AdditionalNotes,
+                    AssignedProviderId = serviceRequest.AssignedProviderId,
+                    AssignedProviderName = assignedProviderName,
+                    RequestStatus = serviceRequest.Status.ToString(),
+                    QuoteCount = quotes.Count,
+                    Quotes = quotes,
+                    CreatedAt = serviceRequest.CreatedAt,
+                    UpdatedAt = serviceRequest.UpdatedAt,
+                    Coordinates = serviceRequest.Latitude.HasValue && serviceRequest.Longitude.HasValue 
+                        ? new CoordinatesDto { Latitude = serviceRequest.Latitude.Value, Longitude = serviceRequest.Longitude.Value }
+                        : null
+                });
+            }
+
+            var response = new PaginatedServiceRequestsDto
+            {
+                Data = requests,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+
+            _logger.LogInformation($"Returning {requests.Count} jobs for provider {providerId}");
+            return (true, "Provider jobs retrieved successfully", response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error getting provider jobs for provider {providerId}: {ex.Message}");
+            return (false, $"Failed to get provider jobs: {ex.Message}", null);
+        }
+    }
+
     public async Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetOpenRequestsAsync(Guid providerId, int page, int pageSize)
     {
         try
@@ -308,20 +355,28 @@ public class MessageService : IMessageService
                 .Select(prs => prs.RequestId)
                 .ToListAsync();
 
-            _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests for provider {providerId}: [{string.Join(", ", hiddenRequestIds)}]");
+            // Get request IDs where this provider already has a quote
+            var quotedRequestIds = await _context.Quotes
+                .Where(q => q.ProviderId == providerId)
+                .Select(q => q.RequestId)
+                .ToListAsync();
+
+            _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests and {quotedRequestIds.Count} already quoted requests for provider {providerId}");
 
             // Get open/reopened requests without assigned provider OR any requests assigned to current provider
+            // Exclude requests where provider already has a quote
             var baseQuery = _context.ServiceRequests
                 .Where(sr => ((sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
                             && sr.AssignedProviderId == null) ||
                             sr.AssignedProviderId == providerId)
+                .Where(sr => !quotedRequestIds.Contains(sr.Id))
                 .AsNoTracking();
 
             var allOpenRequests = await baseQuery.Select(sr => sr.Id).ToListAsync();
             _logger.LogInformation($"Total open/reopened requests: {allOpenRequests.Count} - [{string.Join(", ", allOpenRequests)}]");
 
-            // Filter out hidden requests
-            var visibleRequestIds = allOpenRequests.Except(hiddenRequestIds).ToList();
+            // Filter out hidden requests and already quoted requests
+            var visibleRequestIds = allOpenRequests.Except(hiddenRequestIds).Except(quotedRequestIds).ToList();
             _logger.LogInformation($"Visible requests after filtering: {visibleRequestIds.Count} - [{string.Join(", ", visibleRequestIds)}]");
 
             var total = visibleRequestIds.Count;
@@ -346,24 +401,10 @@ public class MessageService : IMessageService
                 // Don't auto-create status record - show as "New"
                 // Don't auto-update if status already exists - maintain hierarchy
                 
-                // Get quotes for this request
-                var quotes = await _context.Quotes
-                    .Include(q => q.Provider)
-                    .ThenInclude(p => p!.User)
+                // Don't show any quotes for available requests - providers should only see quote count
+                var quoteCount = await _context.Quotes
                     .Where(q => q.RequestId == item.ServiceRequest.Id)
-                    .Select(q => new QuoteResponseDto
-                    {
-                        Id = q.Id,
-                        ProviderId = q.ProviderId,
-                        RequestId = q.RequestId,
-                        Price = q.Price,
-                        Message = q.Message,
-                        CreatedAt = q.CreatedAt,
-                        ExpiresAt = q.ExpiresAt,
-                        ProviderName = q.Provider!.User!.FullName,
-                        ProviderRating = q.Provider.Rating
-                    })
-                    .ToListAsync();
+                    .CountAsync();
 
                 requests.Add(new ServiceRequestResponseDto
                 {
@@ -382,8 +423,8 @@ public class MessageService : IMessageService
                     AssignedProviderId = item.ServiceRequest.AssignedProviderId,
                     RequestStatus = item.ServiceRequest.Status.ToString(),
                     ProviderStatus = currentProviderStatus != null ? currentProviderStatus.Status.ToString() : "New",
-                    QuoteCount = quotes.Count,
-                    Quotes = quotes,
+                    QuoteCount = quoteCount,
+                    Quotes = new List<QuoteResponseDto>(),
                     CreatedAt = item.ServiceRequest.CreatedAt,
                     UpdatedAt = item.ServiceRequest.UpdatedAt,
                     Coordinates = item.ServiceRequest.Latitude.HasValue && item.ServiceRequest.Longitude.HasValue 
@@ -538,6 +579,20 @@ public class MessageService : IMessageService
             if (serviceRequest.AssignedProviderId != providerId)
                 return (false, "Access denied");
 
+            // CRITICAL VALIDATION: Check if there's an accepted agreement
+            var hasAcceptedAgreement = await _context.Agreements
+                .Join(_context.Quotes, a => a.QuoteId, q => q.Id, (a, q) => new { Agreement = a, Quote = q })
+                .AnyAsync(aq => aq.Quote.RequestId == request.RequestId && 
+                               aq.Quote.ProviderId == providerId &&
+                               aq.Agreement.RequesterAccepted && 
+                               aq.Agreement.ProviderAccepted);
+
+            if (!hasAcceptedAgreement)
+            {
+                _logger.LogWarning($"Attempt to complete request {request.RequestId} without accepted agreement by provider {providerId}");
+                return (false, "Cannot complete request: No accepted agreement found. Both requester and provider must accept a quote before completion.");
+            }
+
             serviceRequest.Status = ServiceRequestStatus.Completed;
             serviceRequest.UpdatedAt = DateTime.UtcNow;
 
@@ -619,17 +674,24 @@ public class MessageService : IMessageService
                     .Include(q => q.Provider)
                     .ThenInclude(p => p!.User)
                     .Where(q => q.RequestId == conversation.RequestId && q.ProviderId == conversation.OtherUserId)
-                    .Select(q => new QuoteResponseDto
+                    .GroupJoin(_context.Agreements,
+                        q => q.Id,
+                        a => a.QuoteId,
+                        (q, agreements) => new { Quote = q, Agreement = agreements.FirstOrDefault() })
+                    .Select(qa => new QuoteResponseDto
                     {
-                        Id = q.Id,
-                        ProviderId = q.ProviderId,
-                        RequestId = q.RequestId,
-                        Price = q.Price,
-                        Message = q.Message,
-                        CreatedAt = q.CreatedAt,
-                        ExpiresAt = q.ExpiresAt,
-                        ProviderName = q.Provider!.User!.FullName,
-                        ProviderRating = q.Provider.Rating
+                        Id = qa.Quote.Id,
+                        ProviderId = qa.Quote.ProviderId,
+                        RequestId = qa.Quote.RequestId,
+                        Price = qa.Quote.Price,
+                        Message = qa.Quote.Message,
+                        CreatedAt = qa.Quote.CreatedAt,
+                        ExpiresAt = qa.Quote.ExpiresAt,
+                        ProviderName = qa.Quote.Provider!.User!.FullName,
+                        ProviderRating = qa.Quote.Provider.Rating,
+                        QuoteStatus = qa.Quote.Status,
+                        IsAcceptedByRequester = qa.Agreement != null && qa.Agreement.RequesterAccepted,
+                        IsAcceptedByProvider = qa.Agreement != null && qa.Agreement.ProviderAccepted
                     })
                     .ToListAsync();
                 

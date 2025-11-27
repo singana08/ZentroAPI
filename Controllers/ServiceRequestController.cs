@@ -44,511 +44,307 @@ public class ServiceRequestController : ControllerBase
         _logger = logger;
     }
 
+    // REQUESTER ENDPOINTS
+    
     /// <summary>
-    /// Create a new service request
+    /// Create a new service request (Requester only)
     /// Supports three booking types: book_now, schedule_later, get_quote
+    /// Validates booking-specific requirements and creates request with Open status
     /// </summary>
-    /// <param name="request">Service request details with booking type</param>
-    /// <returns>Created service request with generated ID</returns>
     [HttpPost]
     [Authorize]
-    [ProducesResponseType(typeof(ServiceRequestResponseDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CreateServiceRequest([FromBody] CreateServiceRequestDto request)
+    public async Task<IActionResult> Create([FromBody] CreateServiceRequestDto request)
     {
-        try
-        {
-            // Validate request
-            if (request == null)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Request body cannot be empty"
-                });
-            }
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            // Get current profile ID
-            var profileIdClaim = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(profileIdClaim) || !Guid.TryParse(profileIdClaim, out var profileId))
-            {
-                _logger.LogWarning("Invalid or missing profile ID in claims");
-                return Unauthorized(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Profile authentication failed"
-                });
-            }
+        var (success, message, data) = await _serviceRequestService.CreateServiceRequestAsync(profileId.Value, request);
+        if (!success)
+            return BadRequest(new ErrorResponse { Message = message });
 
-            _logger.LogInformation($"Creating service request for profile {profileId}, booking type: {request.BookingType}");
-
-            var (success, message, data) = await _serviceRequestService.CreateServiceRequestAsync(profileId, request);
-
-            if (!success)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = message
-                });
-            }
-
-            // Create notifications (don't block on failure)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    // Notify requester (current profile)
-                    await _notificationService.CreateNotificationAsync(
-                        profileId,
-                        "Service Request Created",
-                        $"Your {data!.SubCategory} request has been submitted successfully",
-                        "service_request_created",
-                        data.Id,
-                        new { serviceRequestId = data.Id, category = data.MainCategory, subCategory = data.SubCategory }
-                    );
-
-                    // Notify all provider profiles
-                    var providerProfiles = await _context.Providers
-                        .Where(p => p.IsActive)
-                        .ToListAsync();
-                    
-                    foreach (var provider in providerProfiles)
-                    {
-                        await _notificationService.CreateNotificationAsync(
-                            provider.Id,
-                            "New Service Request Available",
-                            $"{data.SubCategory} service needed in {data.Location}",
-                            "new_service_request",
-                            data.Id,
-                            new { serviceRequestId = data.Id, category = data.MainCategory, subCategory = data.SubCategory, location = data.Location }
-                        );
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Failed to create notifications for service request {data?.Id}");
-                }
-            });
-
-            return CreatedAtAction(
-                nameof(GetServiceRequests),
-                new { id = data?.Id },
-                data);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error creating service request: {ex.Message}", ex);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-            {
-                Success = false,
-                Message = ex.Message
-            });
-        }
+        return CreatedAtAction(nameof(Get), new { id = data?.Id }, data);
     }
 
     /// <summary>
-    /// Update an existing service request
-    /// Only the owner can update their own requests
+    /// Update an existing service request (Requester only)
+    /// Only the request owner can update their own requests
+    /// Validates all fields and maintains existing status
     /// </summary>
-    /// <param name="id">Service request ID</param>
-    /// <param name="request">Updated service request details</param>
-    /// <returns>Updated service request</returns>
     [HttpPut("{id}")]
     [Authorize]
-    [ProducesResponseType(typeof(ServiceRequestResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> UpdateServiceRequest(
-        [FromRoute] Guid id,
-        [FromBody] CreateServiceRequestDto request)
+    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] CreateServiceRequestDto request)
     {
-        try
-        {
-            // Validate ID
-            if (id == Guid.Empty)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Invalid service request ID"
-                });
-            }
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            // Validate request
-            if (request == null)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Request body cannot be empty"
-                });
-            }
+        var (success, message, data) = await _serviceRequestService.UpdateServiceRequestAsync(id, profileId.Value, request);
+        if (!success)
+            return message.Contains("not found") ? NotFound(new ErrorResponse { Message = message }) : BadRequest(new ErrorResponse { Message = message });
 
-            // Get current profile ID
-            var profileIdClaim = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(profileIdClaim) || !Guid.TryParse(profileIdClaim, out var profileId))
-            {
-                _logger.LogWarning("Invalid or missing profile ID in claims");
-                return Unauthorized(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Profile authentication failed"
-                });
-            }
-
-            _logger.LogInformation($"Updating service request {id} for profile {profileId}");
-
-            var (success, message, data) = await _serviceRequestService.UpdateServiceRequestAsync(id, profileId, request);
-
-            if (!success)
-            {
-                if (message.Contains("not found"))
-                {
-                    return NotFound(new ErrorResponse
-                    {
-                        Success = false,
-                        Message = message
-                    });
-                }
-
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = message
-                });
-            }
-
-            return Ok(data);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error updating service request {id}: {ex.Message}", ex);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-            {
-                Success = false,
-                Message = "An error occurred while updating the service request"
-            });
-        }
+        return Ok(data);
     }
 
     /// <summary>
-    /// Get all service requests - auto-detects requester vs provider from profile
+    /// Get requester's own service requests with filtering and pagination
+    /// Supports filtering by status, booking type, and category
+    /// Returns paginated list with quotes, reviews, and request details
+    /// </summary>
+    [HttpGet("requester")]
+    [Authorize]
+    public async Task<IActionResult> Requester([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? status = null, [FromQuery] string? bookingType = null, [FromQuery] string? category = null)
+    {
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+
+        var (success, message, data) = await _serviceRequestService.GetUserServiceRequestsAsync(profileId.Value, page, pageSize, status, bookingType, category);
+        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
+    }
+
+    /// <summary>
+    /// Cancel a service request (Requester only)
+    /// Only the request owner can cancel their own requests
+    /// Changes status to Cancelled and prevents further provider interactions
+    /// </summary>
+    [HttpDelete("{id}/cancel")]
+    [Authorize]
+    public async Task<IActionResult> Cancel([FromRoute] Guid id)
+    {
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+
+        var (success, message) = await _serviceRequestService.CancelServiceRequestAsync(id, profileId.Value);
+        if (!success)
+            return message.Contains("not found") ? NotFound(new ErrorResponse { Message = message }) : BadRequest(new ErrorResponse { Message = message });
+
+        return Ok(new { Success = true, Message = message });
+    }
+
+    // SHARED ENDPOINTS
+    
+    /// <summary>
+    /// Get service requests with auto-detection of user type
+    /// Routes to provider jobs or requester requests based on profile
+    /// Maintained for backward compatibility
     /// </summary>
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> GetServiceRequests(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? status = null,
-        [FromQuery] string? bookingType = null,
-        [FromQuery] string? category = null)
+    public async Task<IActionResult> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? status = null, [FromQuery] string? bookingType = null, [FromQuery] string? category = null)
     {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            // Check if profile is provider or requester
-            var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
-            
-            // Auto-detect based on profile type
-            _logger.LogInformation($"Profile {profileId.Value} is provider: {isProvider}");
-            
-            var (listSuccess, listMessage, listData) = isProvider
-                ? await _messageService.GetOpenRequestsAsync(profileId.Value, page, pageSize)
-                : await _serviceRequestService.GetUserServiceRequestsAsync(profileId.Value, page, pageSize, status, bookingType, category);
+        var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
+        var (success, message, data) = isProvider
+            ? await _messageService.GetProviderJobsAsync(profileId.Value, page, pageSize)
+            : await _serviceRequestService.GetUserServiceRequestsAsync(profileId.Value, page, pageSize, status, bookingType, category);
 
-            if (!listSuccess)
-            {
-                _logger.LogError($"Failed to get requests for profile {profileId.Value}, isProvider: {isProvider}, error: {listMessage}");
-            }
-
-            return listSuccess ? Ok(listData) : BadRequest(new ErrorResponse { Message = listMessage });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving service requests");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
+        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
+    // PROVIDER ENDPOINTS
+    
     /// <summary>
-    /// Get single service request by ID
+    /// Get provider's jobs - requests they've quoted on or been assigned to
+    /// Shows provider's active pipeline including quoted and assigned requests
+    /// Used for "My Jobs" section in provider dashboard
     /// </summary>
-    [HttpGet("{id:guid}")]
+    [HttpGet("provider")]
     [Authorize]
-    public async Task<IActionResult> GetServiceRequest([FromRoute] Guid id)    
+    public async Task<IActionResult> Provider([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            var (success, message, data) = await _serviceRequestService.GetServiceRequestAsync(id, profileId.Value);
-            return success ? Ok(data) : NotFound(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving service request");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
+        var (success, message, data) = await _messageService.GetProviderJobsAsync(profileId.Value, page, pageSize);
+        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
     /// <summary>
-    /// Cancel a service request
-    /// Only the owner can cancel their own requests
+    /// Get available service requests for providers to quote on
+    /// Shows open/reopened requests excluding hidden ones
+    /// Includes requests assigned to current provider for ongoing work
     /// </summary>
-    /// <param name="id">Service request ID to cancel</param>
-    /// <returns>Cancellation result</returns>
-    [HttpDelete("{id}/cancel")]
+    [HttpGet("provider/available")]
     [Authorize]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CancelServiceRequest([FromRoute] Guid id)
+    public async Task<IActionResult> Available([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        try
-        {
-            // Validate ID
-            if (id == Guid.Empty)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Invalid service request ID"
-                });
-            }
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            // Get current profile ID
-            var profileIdClaim = User.FindFirst("profile_id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(profileIdClaim) || !Guid.TryParse(profileIdClaim, out var profileId))
-            {
-                _logger.LogWarning("Invalid or missing profile ID in claims");
-                return Unauthorized(new ErrorResponse
-                {
-                    Success = false,
-                    Message = "Profile authentication failed"
-                });
-            }
-
-            _logger.LogInformation($"Cancelling service request {id} for profile {profileId}");
-
-            var (success, message) = await _serviceRequestService.CancelServiceRequestAsync(id, profileId);
-
-            if (!success)
-            {
-                if (message.Contains("not found"))
-                {
-                    return NotFound(new ErrorResponse
-                    {
-                        Success = false,
-                        Message = message
-                    });
-                }
-
-                return BadRequest(new ErrorResponse
-                {
-                    Success = false,
-                    Message = message
-                });
-            }
-
-            return Ok(new
-            {
-                Success = true,
-                Message = message
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error cancelling service request {id}: {ex.Message}", ex);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-            {
-                Success = false,
-                Message = "An error occurred while cancelling the service request"
-            });
-        }
+        var (success, message, data) = await _messageService.GetOpenRequestsAsync(profileId.Value, page, pageSize);
+        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
     /// <summary>
-    /// Hide a service request for the current provider
+    /// Hide a service request from provider's available list
+    /// Allows providers to remove unwanted requests from their view
+    /// Sets provider status to Hidden for this specific request
     /// </summary>
     [HttpPost("{id}/hide")]
     [Authorize]
-    public async Task<IActionResult> HideServiceRequest([FromRoute] Guid id)
+    public async Task<IActionResult> Hide([FromRoute] Guid id)
+    {
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+
+        var providerExists = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
+        if (!providerExists)
+            return BadRequest(new ErrorResponse { Message = "Provider profile not found" });
+
+        var existingStatus = await _context.ProviderRequestStatuses
+            .FirstOrDefaultAsync(prs => prs.ProviderId == profileId.Value && prs.RequestId == id);
+        
+        if (existingStatus == null)
+        {
+            _context.ProviderRequestStatuses.Add(new ProviderRequestStatus
+            {
+                ProviderId = profileId.Value,
+                RequestId = id,
+                Status = ProviderStatus.Hidden
+            });
+        }
+        else
+        {
+            existingStatus.Status = ProviderStatus.Hidden;
+            existingStatus.LastUpdated = DateTime.UtcNow;
+        }
+        
+        await _context.SaveChangesAsync();
+        return Ok(new { Success = true, Message = "Request hidden successfully" });
+    }
+
+    /// <summary>
+    /// Get detailed service request with quotes and conversations
+    /// Returns request info, quotes grouped by provider with their conversations,
+    /// general messages, and review data for comprehensive view
+    /// </summary>
+    [HttpGet("{id:guid}/details")]
+    [Authorize]
+    public async Task<IActionResult> Details([FromRoute] Guid id)
     {
         try
         {
             var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
             if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Success = false, Message = "Invalid profile authentication" });
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            var providerExists = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
-            if (!providerExists)
-                return BadRequest(new ErrorResponse { Success = false, Message = "Provider profile not found" });
+            var serviceRequest = await _context.ServiceRequests
+                .AsNoTracking()
+                .FirstOrDefaultAsync(sr => sr.Id == id);
 
-            var existingStatus = await _context.ProviderRequestStatuses
-                .FirstOrDefaultAsync(prs => prs.ProviderId == profileId.Value && prs.RequestId == id);
-            
-            if (existingStatus == null)
+            if (serviceRequest == null)
+                return NotFound(new ErrorResponse { Message = "Service request not found" });
+
+            // Get quotes
+            var quotes = await _context.Quotes
+                .Include(q => q.Provider)
+                .ThenInclude(p => p!.User)
+                .Where(q => q.RequestId == id)
+                .ToListAsync();
+
+            // Get all messages for this request
+            var allMessages = await _context.Messages
+                .Where(m => m.RequestId == id)
+                .OrderBy(m => m.Timestamp)
+                .ToListAsync();
+
+            // Build quotes with messages
+            var quotesWithMessages = quotes.Select(q => new QuoteWithMessagesDto
             {
-                var providerStatus = new ProviderRequestStatus
+                Id = q.Id,
+                ProviderId = q.ProviderId,
+                ProviderName = q.Provider!.User!.FullName,
+                Price = q.Price,
+                Message = q.Message,
+                CreatedAt = q.CreatedAt,
+                IsAcceptedByRequester = _context.Agreements.Any(a => a.QuoteId == q.Id && a.RequesterAccepted),
+                Messages = allMessages
+                    .Where(m => (m.SenderId == serviceRequest.RequesterId && m.ReceiverId == q.ProviderId) ||
+                               (m.SenderId == q.ProviderId && m.ReceiverId == serviceRequest.RequesterId))
+                    .Select(m => new MessageDto
+                    {
+                        Id = m.Id,
+                        MessageText = m.MessageText,
+                        IsFromProvider = m.SenderId == q.ProviderId,
+                        IsFromRequester = m.SenderId == serviceRequest.RequesterId,
+                        SentAt = m.Timestamp
+                    })
+                    .ToList()
+            }).ToList();
+
+            // Get provider IDs that have quotes
+            var providerIdsWithQuotes = quotes.Select(q => q.ProviderId).ToHashSet();
+
+            // Get general messages (not tied to providers with quotes)
+            var generalMessages = allMessages
+                .Where(m => !providerIdsWithQuotes.Contains(m.SenderId) && !providerIdsWithQuotes.Contains(m.ReceiverId))
+                .Select(m => new MessageDto
                 {
-                    ProviderId = profileId.Value,
-                    RequestId = id,
-                    Status = ProviderStatus.Hidden
-                };
-                _context.ProviderRequestStatuses.Add(providerStatus);
-            }
-            else
-            {
-                existingStatus.Status = ProviderStatus.Hidden;
-                existingStatus.LastUpdated = DateTime.UtcNow;
-            }
-            
-            await _context.SaveChangesAsync();
+                    Id = m.Id,
+                    MessageText = m.MessageText,
+                    IsFromProvider = _context.Providers.Any(p => p.Id == m.SenderId),
+                    IsFromRequester = m.SenderId == serviceRequest.RequesterId,
+                    SentAt = m.Timestamp
+                })
+                .ToList();
 
-            return Ok(new { Success = true, Message = "Request hidden successfully" });
+            // Get review if exists
+            var review = await _context.Reviews
+                .AsNoTracking()
+                .Where(r => r.ServiceRequestId == id)
+                .Select(r => new ReviewDto
+                {
+                    Rating = r.Rating,
+                    Comment = r.Comment
+                })
+                .FirstOrDefaultAsync();
+
+            var response = new ServiceRequestDetailsDto
+            {
+                Id = serviceRequest.Id,
+                RequestStatus = serviceRequest.Status.ToString(),
+                MainCategory = serviceRequest.MainCategory,
+                SubCategory = serviceRequest.SubCategory,
+                BookingType = serviceRequest.BookingType.ToString(),
+                Location = serviceRequest.Location,
+                Notes = serviceRequest.Notes,
+                CreatedAt = serviceRequest.CreatedAt,
+                Quotes = quotesWithMessages,
+                Messages = generalMessages,
+                Review = review
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error hiding service request");
+            _logger.LogError(ex, "Error retrieving service request details");
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
 
+
     /// <summary>
-    /// Update provider status for a request
+    /// Update provider's status for a specific request
     /// </summary>
     [HttpPost("provider-status")]
     [Authorize]
     public async Task<IActionResult> UpdateProviderStatus([FromBody] UpdateProviderStatusDto request)
     {
-        try
-        {
-            _logger.LogInformation($"UpdateProviderStatus called with RequestId: {request?.RequestId}, Status: {request?.Status}");
-            
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-            {
-                _logger.LogWarning("Profile authentication failed");
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-            }
+        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+        if (!profileId.HasValue)
+            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            _logger.LogInformation($"Provider ID: {profileId.Value}");
-            
-            var (success, message, data) = await _messageService.UpdateProviderStatusAsync(profileId.Value, request);
-            
-            _logger.LogInformation($"Service result - Success: {success}, Message: {message}");
-            
-            return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating provider status");
-            return StatusCode(500, new ErrorResponse { Message = $"Internal server error: {ex.Message}" });
-        }
-    }
-
-    /// <summary>
-    /// Get provider status for a request
-    /// </summary>
-    [HttpGet("provider-status")]
-    [Authorize]
-    public async Task<IActionResult> GetProviderStatus([FromQuery] Guid requestId)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-
-            var (success, message, data) = await _messageService.GetProviderStatusAsync(profileId.Value, requestId);
-            return success ? Ok(data) : NotFound(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting provider status");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Assign provider to request
-    /// </summary>
-    [HttpPost("assign")]
-    [Authorize]
-    public async Task<IActionResult> AssignProvider([FromBody] AssignProviderDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-
-            var (success, message) = await _messageService.AssignProviderAsync(profileId.Value, request);
-            return success ? Ok(new { Success = true, Message = message }) : BadRequest(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error assigning provider");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Reject request and reopen it
-    /// </summary>
-    [HttpPost("reject")]
-    [Authorize]
-    public async Task<IActionResult> RejectRequest([FromBody] RequestActionDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-
-            var (success, message) = await _messageService.RejectRequestAsync(profileId.Value, request);
-            return success ? Ok(new { Success = true, Message = message }) : BadRequest(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error rejecting request");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Complete request
-    /// </summary>
-    [HttpPost("complete")]
-    [Authorize]
-    public async Task<IActionResult> CompleteRequest([FromBody] RequestActionDto request)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-
-            var (success, message) = await _messageService.CompleteRequestAsync(profileId.Value, request);
-            return success ? Ok(new { Success = true, Message = message }) : BadRequest(new ErrorResponse { Message = message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error completing request");
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
+        var (success, message, data) = await _messageService.UpdateProviderStatusAsync(profileId.Value, request);
+        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
     /// <summary>
@@ -565,7 +361,7 @@ public class ServiceRequestController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> UpdateWorkflowStatus(
+    public async Task<IActionResult> WorkflowStatus(
         [FromRoute] Guid id,
         [FromBody] UpdateWorkflowStatusDto request)
     {
@@ -606,68 +402,8 @@ public class ServiceRequestController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get workflow status for a service request
-    /// </summary>
-    /// <param name="id">Service request ID</param>
-    /// <returns>Workflow status</returns>
-    [HttpGet("{id}/workflow-status")]
-    [Authorize]
-    [ProducesResponseType(typeof(WorkflowStatusResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> GetWorkflowStatus([FromRoute] Guid id)
-    {
-        try
-        {
-            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-            if (!profileId.HasValue)
-                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-            // Check if user is provider or requester
-            var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
-            var isRequester = await _context.Requesters.AnyAsync(r => r.Id == profileId.Value);
 
-            if (!isProvider && !isRequester)
-            {
-                return Unauthorized(new ErrorResponse { Message = "Profile not found" });
-            }
 
-            Guid providerId;
-            if (isProvider)
-            {
-                providerId = profileId.Value;
-            }
-            else
-            {
-                // For requesters, get the assigned provider ID
-                var serviceRequest = await _context.ServiceRequests
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(sr => sr.Id == id && sr.RequesterId == profileId.Value);
-
-                if (serviceRequest?.AssignedProviderId == null)
-                {
-                    return NotFound(new ErrorResponse { Message = "No provider assigned to this request" });
-                }
-
-                providerId = serviceRequest.AssignedProviderId.Value;
-            }
-
-            var (success, message, data) = await _workflowService.GetWorkflowStatusAsync(id, providerId);
-
-            if (!success)
-            {
-                return NotFound(new ErrorResponse { Message = message });
-            }
-
-            return Ok(data);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving workflow status for request {RequestId}", id);
-            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
-        }
-    }
 
 }

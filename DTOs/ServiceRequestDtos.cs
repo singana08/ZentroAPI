@@ -308,6 +308,11 @@ public class ServiceRequestResponseDto
     /// Review data if exists for this service request
     /// </summary>
     public ReviewResponseDto? Review { get; set; }
+
+    /// <summary>
+    /// Workflow status if provider is assigned
+    /// </summary>
+    public WorkflowStatusResponseDto? WorkflowStatus { get; set; }
 }
 
 /// <summary>
@@ -349,3 +354,58 @@ public class PaginatedServiceRequestsDto
     /// </summary>
     public int TotalPages => (Total + PageSize - 1) / PageSize;
 }
+
+/// <summary>
+/// Detailed service request response with quotes and conversations
+/// </summary>
+public class ServiceRequestDetailsDto
+{
+    public Guid Id { get; set; }
+    public string RequestStatus { get; set; } = string.Empty;
+    public string MainCategory { get; set; } = string.Empty;
+    public string SubCategory { get; set; } = string.Empty;
+    public string BookingType { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public List<QuoteWithMessagesDto> Quotes { get; set; } = [];
+    public List<MessageDto> Messages { get; set; } = [];
+    public ReviewDto? Review { get; set; }
+}
+
+/// <summary>
+/// Quote with associated conversation messages
+/// </summary>
+public class QuoteWithMessagesDto
+{
+    public Guid Id { get; set; }
+    public Guid ProviderId { get; set; }
+    public string ProviderName { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public bool IsAcceptedByRequester { get; set; }
+    public List<MessageDto> Messages { get; set; } = [];
+}
+
+/// <summary>
+/// Message DTO for conversations
+/// </summary>
+public class MessageDto
+{
+    public Guid Id { get; set; }
+    public string MessageText { get; set; } = string.Empty;
+    public bool IsFromProvider { get; set; }
+    public bool IsFromRequester { get; set; }
+    public DateTime SentAt { get; set; }
+}
+
+/// <summary>
+/// Review DTO
+/// </summary>
+public class ReviewDto
+{
+    public int Rating { get; set; }
+    public string Comment { get; set; } = string.Empty;
+}
+

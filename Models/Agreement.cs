@@ -7,7 +7,7 @@ public class Agreement
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     
-    public Guid RequestId { get; set; }
+    public Guid QuoteId { get; set; }
     public Guid RequesterId { get; set; }
     public Guid ProviderId { get; set; }
     
