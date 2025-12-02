@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
-namespace HaluluAPI.Utilities;
+namespace ZentroAPI.Utilities;
 
 /// <summary>
 /// Validation helper utilities

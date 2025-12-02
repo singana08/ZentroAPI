@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 public interface ITokenService
 {

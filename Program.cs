@@ -1,5 +1,5 @@
-using HaluluAPI.Data;
-using HaluluAPI.Services;
+using ZentroAPI.Data;
+using ZentroAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -64,8 +64,8 @@ builder.Services.AddCors(options =>
 // Add authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings.GetValue<string>("SecretKey") ?? string.Empty;
-var issuer = jwtSettings.GetValue<string>("Issuer") ?? "HaluluAPI";
-var audience = jwtSettings.GetValue<string>("Audience") ?? "HaluluMobileApp";
+var issuer = jwtSettings.GetValue<string>("Issuer") ?? "ZentroAPI";
+var audience = jwtSettings.GetValue<string>("Audience") ?? "ZentroMobileApp";
 
 var key = Encoding.ASCII.GetBytes(secretKey);
 
@@ -130,13 +130,13 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Halulu API",
+        Title = "Zentro API",
         Version = "v1",
         Description = "Email OTP Authentication API with JWT support",
         Contact = new OpenApiContact
         {
-            Name = "Halulu Support",
-            Email = "support@halulu.com"
+            Name = "Zentro Support",
+            Email = "support@zentro.com"
         }
     });
 
@@ -190,8 +190,8 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDbContext>();
         
         // Ensure the schema exists before applying migrations
-        context.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS halulu_api;");
-        Console.WriteLine("Schema halulu_api created/verified");
+        context.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS zentro_api;");
+        Console.WriteLine("Schema zentro_api created/verified");
         
         // Apply migrations
         context.Database.Migrate();
@@ -213,7 +213,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Halulu API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Zentro API v1");
         c.RoutePrefix = "swagger";
     });
 }
@@ -232,7 +232,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map SignalR hub
-app.MapHub<HaluluAPI.Hubs.ChatHub>("/chathub");
+app.MapHub<ZentroAPI.Hubs.ChatHub>("/chathub");
 
 // Map health check endpoints
 //app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
@@ -242,7 +242,7 @@ app.MapHub<HaluluAPI.Hubs.ChatHub>("/chathub");
 //app.MapGet("/api/health/status", () => Results.Ok(new 
 //{ 
 //    status = "healthy", 
-//    service = "HaluluAPI", 
+//    service = "ZentroAPI", 
 //    version = "1.0.0", 
 //    timestamp = DateTime.UtcNow 
 //}))

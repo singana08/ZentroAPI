@@ -1,4 +1,4 @@
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 /// <summary>
 /// Interface for OTP generation and validation

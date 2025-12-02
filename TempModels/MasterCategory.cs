@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
-namespace HaluluAPI.TempModels;
+namespace ZentroAPI.TempModels;
 
 public partial class MasterCategory
 {

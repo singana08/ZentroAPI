@@ -1,11 +1,11 @@
-using HaluluAPI.Data;
-using HaluluAPI.DTOs;
-using HaluluAPI.Models;
+using ZentroAPI.Data;
+using ZentroAPI.DTOs;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
-using HaluluAPI.Hubs;
+using ZentroAPI.Hubs;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 public class QuoteService : IQuoteService
 {

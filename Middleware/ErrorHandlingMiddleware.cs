@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
-using HaluluAPI.DTOs;
+using ZentroAPI.DTOs;
 
-namespace HaluluAPI.Middleware;
+namespace ZentroAPI.Middleware;
 
 /// <summary>
 /// Global error handling middleware

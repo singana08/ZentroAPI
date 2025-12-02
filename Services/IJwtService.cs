@@ -1,6 +1,6 @@
-using HaluluAPI.Models;
+using ZentroAPI.Models;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 /// <summary>
 /// Interface for JWT token generation and validation

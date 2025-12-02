@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace HaluluAPI.Controllers;
+namespace ZentroAPI.Controllers;
 
 /// <summary>
 /// Health check endpoints

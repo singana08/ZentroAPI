@@ -1,11 +1,11 @@
-using HaluluAPI.Data;
-using HaluluAPI.DTOs;
-using HaluluAPI.Models;
+using ZentroAPI.Data;
+using ZentroAPI.DTOs;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Text.Json;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 public class NotificationService : INotificationService
 {

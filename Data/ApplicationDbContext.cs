@@ -1,7 +1,7 @@
-using HaluluAPI.Models;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HaluluAPI.Data;
+namespace ZentroAPI.Data;
 
 public class ApplicationDbContext : DbContext
 {
@@ -33,7 +33,7 @@ public class ApplicationDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         // Set default schema
-        modelBuilder.HasDefaultSchema("halulu_api");
+        modelBuilder.HasDefaultSchema("zentro_api");
 
         // User configuration - simplified
         modelBuilder.Entity<User>(entity =>

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 /// <summary>
 /// DTO for adding additional profile (Provider or Requester)

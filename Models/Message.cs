@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HaluluAPI.Models;
+namespace ZentroAPI.Models;
 
 /// <summary>
 /// Message entity for chat between requesters and providers

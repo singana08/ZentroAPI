@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace HaluluAPI.Utilities;
+namespace ZentroAPI.Utilities;
 
 /// <summary>
 /// Utility class to generate unique 8-digit alphanumeric codes

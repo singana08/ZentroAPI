@@ -1,6 +1,6 @@
-using HaluluAPI.DTOs;
+using ZentroAPI.DTOs;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 /// <summary>
 /// Interface for provider earnings service

@@ -1,8 +1,8 @@
-using HaluluAPI.Data;
-using HaluluAPI.Models;
+using ZentroAPI.Data;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 public class OtpService : IOtpService
 {

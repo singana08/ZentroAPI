@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace HaluluAPI.Migrations
+namespace ZentroAPI.Migrations
 {
     /// <inheritdoc />
     public partial class CreateNotificationsTable : Migration

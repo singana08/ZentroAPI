@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HaluluAPI.Models;
+namespace ZentroAPI.Models;
 
 /// <summary>
 /// Simplified User model - core identity only

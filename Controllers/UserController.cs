@@ -1,12 +1,12 @@
-using HaluluAPI.Data;
-using HaluluAPI.DTOs;
-using HaluluAPI.Services;
+using ZentroAPI.Data;
+using ZentroAPI.DTOs;
+using ZentroAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace HaluluAPI.Controllers;
+namespace ZentroAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
