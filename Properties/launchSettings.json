@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "HaluluAPI": {
+    "ZentroAPI": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
