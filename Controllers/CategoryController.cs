@@ -121,6 +121,18 @@ public class CategoryController : ControllerBase
     }
 
     /// <summary>
+    /// Test endpoint to verify API connectivity
+    /// </summary>
+    /// <returns>Success message</returns>
+    [HttpGet("test")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public IActionResult Test()
+    {
+        return Ok(new { success = true, message = "Category API is working successfully" });
+    }
+
+    /// <summary>
     /// Import categories and subcategories from categories-data.json file
     /// </summary>
     /// <returns>Import result with statistics</returns>
