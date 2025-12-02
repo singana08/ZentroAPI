@@ -1,10 +1,10 @@
-using HaluluAPI.DTOs;
-using HaluluAPI.Services;
+using ZentroAPI.DTOs;
+using ZentroAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
-namespace HaluluAPI.Controllers;
+namespace ZentroAPI.Controllers;
 
 /// <summary>
 /// Authentication controller handling OTP, verification, and registration

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HaluluAPI.Models;
+namespace ZentroAPI.Models;
 
 [Table("master_subcategory")]
 public class Subcategory

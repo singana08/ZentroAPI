@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace HaluluAPI.Utilities;
+namespace ZentroAPI.Utilities;
 
 /// <summary>
 /// Extension methods for ClaimsPrincipal

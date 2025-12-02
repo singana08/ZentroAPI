@@ -1,4 +1,4 @@
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 /// <summary>
 /// Response after OTP is sent

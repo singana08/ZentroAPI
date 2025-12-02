@@ -1,4 +1,4 @@
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 /// <summary>
 /// Provider earnings response DTO

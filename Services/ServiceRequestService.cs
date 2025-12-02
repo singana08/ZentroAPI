@@ -1,10 +1,10 @@
-using HaluluAPI.Data;
-using HaluluAPI.DTOs;
-using HaluluAPI.Models;
+using ZentroAPI.Data;
+using ZentroAPI.DTOs;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 /// <summary>
 /// Service implementation for managing service requests

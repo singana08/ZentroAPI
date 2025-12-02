@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HaluluAPI.Models;
+namespace ZentroAPI.Models;
 
 public class Address
 {

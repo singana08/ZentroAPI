@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using HaluluAPI.Services;
+using ZentroAPI.Services;
 
-namespace HaluluAPI.Hubs;
+namespace ZentroAPI.Hubs;
 
 [Authorize]
 public class ChatHub : Hub

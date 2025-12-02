@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 /// <summary>
 /// DTO for creating a requester profile

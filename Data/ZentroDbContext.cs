@@ -1,17 +1,17 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using HaluluAPI.TempModels;
+using ZentroAPI.TempModels;
 using Microsoft.EntityFrameworkCore;
 
-namespace HaluluAPI.Data;
+namespace ZentroAPI.Data;
 
-public partial class HaluluDbContext : DbContext
+public partial class ZentroDbContext : DbContext
 {
-    public HaluluDbContext()
+    public ZentroDbContext()
     {
     }
 
-    public HaluluDbContext(DbContextOptions<HaluluDbContext> options)
+    public ZentroDbContext(DbContextOptions<ZentroDbContext> options)
         : base(options)
     {
     }
@@ -32,13 +32,13 @@ public partial class HaluluDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=halulu_db;Username=postgres;Password=postgres");
+        => optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=zentro_db;Username=postgres;Password=postgres");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<MasterCategory>(entity =>
         {
-            entity.ToTable("master_category", "halulu_api");
+            entity.ToTable("master_category", "zentro_api");
 
             entity.HasIndex(e => e.IsActive, "IX_master_category_IsActive");
 
@@ -52,7 +52,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<MasterSubcategory>(entity =>
         {
-            entity.ToTable("master_subcategory", "halulu_api");
+            entity.ToTable("master_subcategory", "zentro_api");
 
             entity.HasIndex(e => new { e.CategoryId, e.Name }, "IX_master_subcategory_CategoryId_Name").IsUnique();
 
@@ -68,7 +68,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<OtpRecord>(entity =>
         {
-            entity.ToTable("OtpRecords", "halulu_api");
+            entity.ToTable("OtpRecords", "zentro_api");
 
             entity.HasIndex(e => new { e.Email, e.CreatedAt }, "IX_OtpRecords_Email_CreatedAt");
 
@@ -85,7 +85,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<Provider>(entity =>
         {
-            entity.ToTable("providers", "halulu_api");
+            entity.ToTable("providers", "zentro_api");
 
             entity.HasIndex(e => e.IsActive, "IX_providers_IsActive");
 
@@ -106,7 +106,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<Requester>(entity =>
         {
-            entity.ToTable("requesters", "halulu_api");
+            entity.ToTable("requesters", "zentro_api");
 
             entity.HasIndex(e => e.IsActive, "IX_requesters_IsActive");
 
@@ -121,7 +121,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<ServiceRequest>(entity =>
         {
-            entity.ToTable("service_requests", "halulu_api");
+            entity.ToTable("service_requests", "zentro_api");
 
             entity.HasIndex(e => e.BookingType, "IX_service_requests_BookingType");
 
@@ -147,7 +147,7 @@ public partial class HaluluDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("users", "halulu_api");
+            entity.ToTable("users", "zentro_api");
 
             entity.HasIndex(e => e.Email, "IX_users_Email").IsUnique();
 

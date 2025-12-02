@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace HaluluAPI.Data;
+namespace ZentroAPI.Data;
 
 public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
@@ -10,7 +10,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         
         // Use the connection string for development
-        var connectionString = "Host=localhost;Port=5432;Database=halulu_db;Username=postgres;Password=postgres";
+        var connectionString = "Host=localhost;Port=5432;Database=zentro_db;Username=postgres;Password=postgres";
         
         optionsBuilder.UseNpgsql(connectionString);
         

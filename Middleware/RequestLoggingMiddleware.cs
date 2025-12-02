@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace HaluluAPI.Middleware;
+namespace ZentroAPI.Middleware;
 
 /// <summary>
 /// Middleware for logging HTTP requests and responses

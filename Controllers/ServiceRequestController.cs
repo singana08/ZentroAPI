@@ -1,13 +1,13 @@
-using HaluluAPI.DTOs;
-using HaluluAPI.Services;
+using ZentroAPI.DTOs;
+using ZentroAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using HaluluAPI.Data;
-using HaluluAPI.Models;
+using ZentroAPI.Data;
+using ZentroAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HaluluAPI.Controllers;
+namespace ZentroAPI.Controllers;
 
 /// <summary>
 /// Controller for managing service requests

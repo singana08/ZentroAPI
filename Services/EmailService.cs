@@ -2,7 +2,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 public class EmailService : IEmailService
 {

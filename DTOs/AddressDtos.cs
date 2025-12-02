@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 public class CreateAddressDto
 {

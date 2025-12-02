@@ -1,4 +1,4 @@
-# Halulu API - Email OTP Authentication
+# Zentro API - Email OTP Authentication
 
 A production-ready .NET Core 8 Web API with email-based OTP authentication, JWT token management, and PostgreSQL integration.
 
@@ -48,7 +48,7 @@ A production-ready .NET Core 8 Web API with email-based OTP authentication, JWT 
 ## Project Structure
 
 ```
-HaluluAPI/
+ZentroAPI/
 ├── Models/                 # Data models (User, OtpRecord)
 ├── DTOs/                   # Data transfer objects
 ├── Data/                   # Entity Framework DbContext
@@ -74,8 +74,8 @@ HaluluAPI/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/HaluluAPI.git
-cd HaluluAPI
+git clone https://github.com/yourusername/ZentroAPI.git
+cd ZentroAPI
 ```
 
 ### 2. Install Dependencies
@@ -90,7 +90,7 @@ Update `appsettings.json` with your PostgreSQL connection string:
 
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Host=localhost;Port=5432;Database=halulu_db;Username=postgres;Password=your_password"
+  "DefaultConnection": "Host=localhost;Port=5432;Database=zentro_db;Username=postgres;Password=your_password"
 }
 ```
 
@@ -104,7 +104,7 @@ Update `appsettings.json` with your email provider:
   "SmtpPort": 587,
   "SenderEmail": "your_email@gmail.com",
   "SenderPassword": "your_app_password",
-  "SenderName": "Halulu"
+  "SenderName": "Zentro"
 }
 ```
 
@@ -119,8 +119,8 @@ Update `appsettings.json` with secure JWT configuration:
 ```json
 "JwtSettings": {
   "SecretKey": "your_super_secret_key_min_32_characters_long_!@#$%",
-  "Issuer": "HaluluAPI",
-  "Audience": "HaluluMobileApp",
+  "Issuer": "ZentroAPI",
+  "Audience": "ZentroMobileApp",
   "ExpirationMinutes": 1440
 }
 ```

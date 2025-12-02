@@ -1,6 +1,6 @@
-using HaluluAPI.Models;
+using ZentroAPI.Models;
 
-namespace HaluluAPI.DTOs;
+namespace ZentroAPI.DTOs;
 
 /// <summary>
 /// Request DTO for creating or updating service requests

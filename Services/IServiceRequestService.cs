@@ -1,7 +1,7 @@
-using HaluluAPI.DTOs;
-using HaluluAPI.Models;
+using ZentroAPI.DTOs;
+using ZentroAPI.Models;
 
-namespace HaluluAPI.Services;
+namespace ZentroAPI.Services;
 
 /// <summary>
 /// Service interface for managing service requests

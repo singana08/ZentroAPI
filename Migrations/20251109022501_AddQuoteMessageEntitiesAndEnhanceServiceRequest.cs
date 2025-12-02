@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace HaluluAPI.Migrations
+namespace ZentroAPI.Migrations
 {
     /// <inheritdoc />
     public partial class AddQuoteMessageEntitiesAndEnhanceServiceRequest : Migration
