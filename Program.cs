@@ -12,6 +12,25 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add caching
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ICacheService, CacheService>();
+
+// Add Azure Blob Storage
+var azureConnectionString = builder.Configuration.GetConnectionString("AzureBlobStorage") 
+    ?? builder.Configuration["AzureBlobStorage:ConnectionString"];
+
+if (!string.IsNullOrEmpty(azureConnectionString))
+{
+    builder.Services.AddSingleton(x => new Azure.Storage.Blobs.BlobServiceClient(azureConnectionString));
+    builder.Services.AddScoped<IAzureBlobService, AzureBlobService>();
+}
+else
+{
+    // Fallback to local storage if Azure not configured
+    builder.Services.AddScoped<IAzureBlobService, LocalFileService>();
+}
+
 // Add custom services
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -30,6 +49,13 @@ builder.Services.AddScoped<IEarningsService, EarningsService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+builder.Services.AddScoped<IStripePaymentService, StripePaymentService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IRealTimeNotificationService, RealTimeNotificationService>();
+builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddScoped<IProviderMatchingService, ProviderMatchingService>();
+builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
 builder.Services.AddHttpClient<NotificationService>();
 
 // Add SignalR
@@ -117,13 +143,7 @@ builder.Services.AddAuthentication(options =>
 // Add authorization
 builder.Services.AddAuthorization();
 
-// Add API versioning support
-//builder.Services.AddApiVersioning(options =>
-//{
-//    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
-//    options.AssumeDefaultVersionWhenUnspecified = true;
-//    options.ReportApiVersions = true;
-//});
+
 
 // Add Swagger/OpenAPI
 builder.Services.AddSwaggerGen(c =>
@@ -208,6 +228,21 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline
+// Add global error handling
+app.UseMiddleware<ZentroAPI.Middleware.ErrorHandlingMiddleware>();
+
+// Add performance monitoring
+app.UseMiddleware<ZentroAPI.Middleware.PerformanceMiddleware>();
+
+// Add rate limiting
+app.UseMiddleware<ZentroAPI.Middleware.RateLimitingMiddleware>();
+
+// Add request logging in development
+if (app.Environment.IsDevelopment())
+{
+    app.UseMiddleware<ZentroAPI.Middleware.RequestLoggingMiddleware>();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -225,6 +260,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowMobileApp");
+
+// Serve static files (uploaded images)
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
