@@ -11,13 +11,18 @@ using Azure.Security.KeyVault.Secrets;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add Azure Key Vault configuration
-if (!builder.Environment.IsDevelopment())
+var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
+if (!string.IsNullOrEmpty(keyVaultUri))
 {
-    var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
-    if (!string.IsNullOrEmpty(keyVaultUri))
+    try
     {
         var credential = new DefaultAzureCredential();
         builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
+        Console.WriteLine("Key Vault configuration loaded successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Key Vault configuration failed: {ex.Message}");
     }
 }
 
