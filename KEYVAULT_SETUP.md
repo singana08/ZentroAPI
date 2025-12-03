@@ -13,7 +13,16 @@ Value: [Your PostgreSQL connection string]
 ### 2. JWT Security
 ```
 Name: JwtSecretKey
-Value: [Your JWT secret key - 32+ characters]
+Value: [Generate using: .\generate-jwt-secret.ps1]
+```
+
+**Generate Secure JWT Key:**
+```powershell
+# Run this PowerShell command to generate cryptographically secure key:
+.\generate-jwt-secret.ps1
+
+# Or use online tool:
+# openssl rand -base64 32
 ```
 
 ### 3. Email Configuration
