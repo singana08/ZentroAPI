@@ -42,8 +42,11 @@ public class PerformanceMiddleware
                     method, path, responseTime, statusCode);
             }
             
-            // Add response time header
-            context.Response.Headers.Add("X-Response-Time", $"{responseTime}ms");
+            // Add response time header only if response hasn't started
+            if (!context.Response.HasStarted)
+            {
+                context.Response.Headers["X-Response-Time"] = $"{responseTime}ms";
+            }
         }
     }
 }
