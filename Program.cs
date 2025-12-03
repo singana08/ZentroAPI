@@ -27,8 +27,7 @@ if (!string.IsNullOrEmpty(keyVaultUri))
 }
 
 // Add services to the container
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? builder.Configuration["DatabaseConnectionString"];
+var connectionString = builder.Configuration["DatabaseConnectionString"];
 
 Console.WriteLine($"Connection String: {(string.IsNullOrEmpty(connectionString) ? "EMPTY" : "Found")}");
 if (!string.IsNullOrEmpty(connectionString))
@@ -44,9 +43,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICacheService, CacheService>();
 
 // Add Azure Blob Storage
-var azureConnectionString = builder.Configuration["AzureBlobStorageConnectionString"]
-    ?? builder.Configuration.GetConnectionString("AzureBlobStorage") 
-    ?? builder.Configuration["AzureBlobStorage:ConnectionString"];
+var azureConnectionString = builder.Configuration["AzureBlobStorageConnectionString"];
 
 if (!string.IsNullOrEmpty(azureConnectionString))
 {
@@ -117,12 +114,9 @@ builder.Services.AddCors(options =>
 });
 
 // Add authentication
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = builder.Configuration["JwtSecretKey"] 
-    ?? jwtSettings.GetValue<string>("SecretKey") 
-    ?? "TempSecretKeyForStartup123456789012345678901234567890";
-var issuer = jwtSettings.GetValue<string>("Issuer") ?? "ZentroAPI";
-var audience = jwtSettings.GetValue<string>("Audience") ?? "ZentroMobileApp";
+var secretKey = builder.Configuration["JwtSecretKey"] ?? "TempSecretKeyForStartup123456789012345678901234567890";
+var issuer = "ZentroAPI";
+var audience = "ZentroMobileApp";
 
 // Ensure minimum key length
 if (secretKey.Length < 32)
