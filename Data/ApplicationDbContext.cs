@@ -26,6 +26,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Agreement> Agreements => Set<Agreement>();
     public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -440,6 +441,32 @@ public class ApplicationDbContext : DbContext
             .HasOne(r => r.Customer)
             .WithMany()
             .HasForeignKey(r => r.CustomerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Payment configuration
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.ToTable("payments");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Amount).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>();
+            entity.Property(e => e.Method).IsRequired().HasConversion<string>();
+            entity.Property(e => e.TransactionId).HasMaxLength(100);
+            entity.Property(e => e.PaymentIntentId).HasMaxLength(100);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.ServiceRequestId);
+            entity.HasIndex(e => e.PayerId);
+            entity.HasIndex(e => e.PayeeId);
+            entity.HasIndex(e => e.Status);
+        });
+
+        // Payment relationships
+        modelBuilder.Entity<Payment>()
+            .HasOne(p => p.ServiceRequest)
+            .WithMany()
+            .HasForeignKey(p => p.ServiceRequestId)
             .OnDelete(DeleteBehavior.Cascade);
 
 

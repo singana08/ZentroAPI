@@ -11,11 +11,13 @@ namespace ZentroAPI.Services;
 public class CategoryService : ICategoryService
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly ICacheService _cacheService;
     private readonly ILogger<CategoryService> _logger;
 
-    public CategoryService(ApplicationDbContext dbContext, ILogger<CategoryService> logger)
+    public CategoryService(ApplicationDbContext dbContext, ICacheService cacheService, ILogger<CategoryService> logger)
     {
         _dbContext = dbContext;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
@@ -24,6 +26,15 @@ public class CategoryService : ICategoryService
     /// </summary>
     public async Task<IList<CategoryWithSubcategoriesDto>> GetAllCategoriesWithSubcategoriesAsync()
     {
+        const string cacheKey = "categories_with_subcategories";
+        
+        var cached = await _cacheService.GetAsync<List<CategoryWithSubcategoriesDto>>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Returning cached categories");
+            return cached;
+        }
+
         try
         {
             var categories = await _dbContext.Categories
@@ -56,7 +67,8 @@ public class CategoryService : ICategoryService
                 })
                 .ToListAsync();
 
-            _logger.LogInformation("Retrieved {CategoryCount} categories with subcategories", categories.Count);
+            await _cacheService.SetAsync(cacheKey, categories.ToList(), TimeSpan.FromMinutes(15));
+            _logger.LogInformation("Retrieved and cached {CategoryCount} categories with subcategories", categories.Count);
             return categories;
         }
         catch (Exception ex)
