@@ -13,7 +13,9 @@ public class StripeWebhookController : ControllerBase
     public StripeWebhookController(IConfiguration configuration, ILogger<StripeWebhookController> logger)
     {
         _logger = logger;
-        _webhookSecret = configuration["StripeSettings:WebhookSecret"] ?? "";
+        _webhookSecret = configuration["StripeWebhookSecret"] 
+            ?? configuration["StripeSettings:WebhookSecret"] 
+            ?? "";
     }
 
     [HttpPost]

@@ -5,19 +5,36 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add Azure Key Vault configuration
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
+    if (!string.IsNullOrEmpty(keyVaultUri))
+    {
+        var credential = new DefaultAzureCredential();
+        builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
+    }
+}
+
 // Add services to the container
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? builder.Configuration["DatabaseConnectionString"];
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // Add caching
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICacheService, CacheService>();
 
 // Add Azure Blob Storage
-var azureConnectionString = builder.Configuration.GetConnectionString("AzureBlobStorage") 
+var azureConnectionString = builder.Configuration["AzureBlobStorageConnectionString"]
+    ?? builder.Configuration.GetConnectionString("AzureBlobStorage") 
     ?? builder.Configuration["AzureBlobStorage:ConnectionString"];
 
 if (!string.IsNullOrEmpty(azureConnectionString))
@@ -89,7 +106,9 @@ builder.Services.AddCors(options =>
 
 // Add authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings.GetValue<string>("SecretKey") ?? string.Empty;
+var secretKey = builder.Configuration["JwtSecretKey"] 
+    ?? jwtSettings.GetValue<string>("SecretKey") 
+    ?? string.Empty;
 var issuer = jwtSettings.GetValue<string>("Issuer") ?? "ZentroAPI";
 var audience = jwtSettings.GetValue<string>("Audience") ?? "ZentroMobileApp";
 
@@ -234,8 +253,8 @@ app.UseMiddleware<ZentroAPI.Middleware.ErrorHandlingMiddleware>();
 // Add performance monitoring
 app.UseMiddleware<ZentroAPI.Middleware.PerformanceMiddleware>();
 
-// Add rate limiting
-app.UseMiddleware<ZentroAPI.Middleware.RateLimitingMiddleware>();
+// Add rate limiting - TEMPORARILY DISABLED
+// app.UseMiddleware<ZentroAPI.Middleware.RateLimitingMiddleware>();
 
 // Add request logging in development
 if (app.Environment.IsDevelopment())

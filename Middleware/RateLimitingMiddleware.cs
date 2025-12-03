@@ -8,7 +8,7 @@ public class RateLimitingMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<RateLimitingMiddleware> _logger;
     private static readonly ConcurrentDictionary<string, ClientRequestInfo> _clients = new();
-    private readonly int _requestLimit = 100; // requests per minute
+    private readonly int _requestLimit = 200; // requests per minute
     private readonly TimeSpan _timeWindow = TimeSpan.FromMinutes(1);
 
     public RateLimitingMiddleware(RequestDelegate next, ILogger<RateLimitingMiddleware> logger)
@@ -37,6 +37,14 @@ public class RateLimitingMiddleware
                 }
                 return existing;
             });
+
+        // Skip rate limiting for health and auth endpoints
+        var path = context.Request.Path.Value?.ToLower();
+        if (path != null && (path.Contains("/health/") || path.Contains("/auth/")))
+        {
+            await _next(context);
+            return;
+        }
 
         if (clientInfo.RequestCount > _requestLimit)
         {
