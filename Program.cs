@@ -30,6 +30,12 @@ if (!string.IsNullOrEmpty(keyVaultUri))
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? builder.Configuration["DatabaseConnectionString"];
 
+Console.WriteLine($"Connection String: {(string.IsNullOrEmpty(connectionString) ? "EMPTY" : "Found")}");
+if (!string.IsNullOrEmpty(connectionString))
+{
+    Console.WriteLine($"DB Host: {(connectionString.Contains("localhost") ? "localhost" : "remote")}");
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 

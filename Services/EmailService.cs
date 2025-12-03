@@ -18,12 +18,14 @@ public class EmailService : IEmailService
         IConfiguration configuration)
     {
         _logger = logger;
-        var emailSettings = configuration.GetSection("EmailSettings");
-        _smtpHost = emailSettings.GetValue<string>("SmtpHost") ?? "smtp.gmail.com";
-        _smtpPort = emailSettings.GetValue<int>("SmtpPort", 587);
-        _senderEmail = emailSettings.GetValue<string>("SenderEmail") ?? string.Empty;
-        _senderPassword = emailSettings.GetValue<string>("SenderPassword") ?? string.Empty;
-        _senderName = emailSettings.GetValue<string>("SenderName") ?? "Halulu";
+        // Try Key Vault secrets first, then fall back to nested configuration
+        _senderEmail = configuration["SenderEmail"] ?? configuration["EmailSettings:SenderEmail"] ?? string.Empty;
+        _senderPassword = configuration["SenderPassword"] ?? configuration["EmailSettings:SenderPassword"] ?? string.Empty;
+        _smtpHost = configuration["SmtpHost"] ?? configuration["EmailSettings:SmtpHost"] ?? "smtp.gmail.com";
+        _smtpPort = int.TryParse(configuration["SmtpPort"], out var port) ? port : (configuration.GetValue<int>("EmailSettings:SmtpPort", 587));
+        _senderName = configuration["SenderName"] ?? configuration["EmailSettings:SenderName"] ?? "Zentro";
+        
+        _logger.LogInformation($"Email config - Host: {_smtpHost}, Port: {_smtpPort}, Email: {(!string.IsNullOrEmpty(_senderEmail) ? "Found" : "Empty")}");
     }
 
     public async Task<bool> SendOtpEmailAsync(string recipientEmail, string otpCode, int expirationMinutes)
