@@ -304,8 +304,7 @@ app.MapHub<ZentroAPI.Hubs.ChatHub>("/chathub");
 
 // Map health check endpoints
 app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
-    .WithName("HealthPing")
-    .WithOpenApi();
+    .WithName("HealthPing");
 
 app.MapGet("/api/health/status", () => Results.Ok(new 
 { 
@@ -314,8 +313,7 @@ app.MapGet("/api/health/status", () => Results.Ok(new
     version = "1.0.0", 
     timestamp = DateTime.UtcNow 
 }))
-    .WithName("HealthStatus")
-    .WithOpenApi();
+    .WithName("HealthStatus");
 
 app.MapGet("/", () => Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow }));
 
