@@ -9,7 +9,9 @@ public class StripePaymentService : IStripePaymentService
     public StripePaymentService(IConfiguration configuration, ILogger<StripePaymentService> logger)
     {
         _logger = logger;
-        StripeConfiguration.ApiKey = configuration["StripeSettings:SecretKey"];
+        var stripeSecretKey = configuration["StripeSecretKey"] 
+            ?? configuration["StripeSettings:SecretKey"];
+        StripeConfiguration.ApiKey = stripeSecretKey;
     }
 
     public async Task<(bool Success, string Message, string? PaymentIntentId, string? ClientSecret)> CreatePaymentIntentAsync(
