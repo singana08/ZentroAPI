@@ -503,7 +503,7 @@ public class ProviderService : IProviderService
     }
 
     /// <summary>
-    /// Parse JSON array string to List<string>
+    /// Parse JSON array string to List of string
     /// </summary>
     private List<string>? ParseJsonArray(string? jsonArray)
     {

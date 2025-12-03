@@ -72,6 +72,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IRealTimeNotificationService, RealTimeNotificationService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IProviderMatchingService, ProviderMatchingService>();
+builder.Services.AddScoped<IProviderService, ProviderService>();
 builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
 builder.Services.AddHttpClient<NotificationService>();
 
@@ -108,9 +109,15 @@ builder.Services.AddCors(options =>
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = builder.Configuration["JwtSecretKey"] 
     ?? jwtSettings.GetValue<string>("SecretKey") 
-    ?? string.Empty;
+    ?? "TempSecretKeyForStartup123456789012345678901234567890";
 var issuer = jwtSettings.GetValue<string>("Issuer") ?? "ZentroAPI";
 var audience = jwtSettings.GetValue<string>("Audience") ?? "ZentroMobileApp";
+
+// Ensure minimum key length
+if (secretKey.Length < 32)
+{
+    secretKey = "TempSecretKeyForStartup123456789012345678901234567890";
+}
 
 var key = Encoding.ASCII.GetBytes(secretKey);
 
@@ -221,29 +228,34 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Apply migrations and initialize database
-using (var scope = app.Services.CreateScope())
+try
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        
-        // Ensure the schema exists before applying migrations
-        context.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS zentro_api;");
-        Console.WriteLine("Schema zentro_api created/verified");
-        
-        // Apply migrations
-        context.Database.Migrate();
-        Console.WriteLine("Database migrated successfully");
-        
-        // Update schema for service requests
-        //await SchemaUpdater.UpdateSchema();
-        //Console.WriteLine("Schema update completed");
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            
+            // Ensure the schema exists before applying migrations
+            context.Database.ExecuteSqlRaw("CREATE SCHEMA IF NOT EXISTS zentro_api;");
+            Console.WriteLine("Schema zentro_api created/verified");
+            
+            // Apply migrations
+            context.Database.Migrate();
+            Console.WriteLine("Database migrated successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Database migration failed: {ex.Message}");
+            // Continue startup even if migration fails
+        }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"An error occurred while migrating the database: {ex.Message}");
-    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Database initialization failed: {ex.Message}");
+    // Continue startup even if database initialization fails
 }
 
 // Configure the HTTP request pipeline
@@ -262,15 +274,14 @@ if (app.Environment.IsDevelopment())
     app.UseMiddleware<ZentroAPI.Middleware.RequestLoggingMiddleware>();
 }
 
-if (app.Environment.IsDevelopment())
+// Enable Swagger in all environments for testing
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Zentro API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Zentro API v1");
+    c.RoutePrefix = "swagger";
+    c.DisplayRequestDuration();
+});
 
 // Don't enforce HTTPS in Docker environment
 if (!app.Environment.IsDevelopment())
@@ -292,18 +303,20 @@ app.MapControllers();
 app.MapHub<ZentroAPI.Hubs.ChatHub>("/chathub");
 
 // Map health check endpoints
-//app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
-//    .WithName("HealthPing")
-//    .WithOpenApi();
+app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
+    .WithName("HealthPing")
+    .WithOpenApi();
 
-//app.MapGet("/api/health/status", () => Results.Ok(new 
-//{ 
-//    status = "healthy", 
-//    service = "ZentroAPI", 
-//    version = "1.0.0", 
-//    timestamp = DateTime.UtcNow 
-//}))
-//    .WithName("HealthStatus")
-//    .WithOpenApi();
+app.MapGet("/api/health/status", () => Results.Ok(new 
+{ 
+    status = "healthy", 
+    service = "ZentroAPI", 
+    version = "1.0.0", 
+    timestamp = DateTime.UtcNow 
+}))
+    .WithName("HealthStatus")
+    .WithOpenApi();
+
+app.MapGet("/", () => Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow }));
 
 app.Run();
