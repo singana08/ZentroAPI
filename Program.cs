@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add Azure Key Vault configuration
 var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
+Console.WriteLine($"Key Vault URI: {keyVaultUri}");
 if (!string.IsNullOrEmpty(keyVaultUri))
 {
     try
@@ -19,11 +20,22 @@ if (!string.IsNullOrEmpty(keyVaultUri))
         var credential = new DefaultAzureCredential();
         builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
         Console.WriteLine("Key Vault configuration loaded successfully");
+        
+        // Log what secrets we can access
+        var dbConn = builder.Configuration["DatabaseConnectionString"];
+        var jwtKey = builder.Configuration["JwtSecretKey"];
+        var senderEmail = builder.Configuration["SenderEmail"];
+        Console.WriteLine($"Secrets loaded - DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}, JWT: {(!string.IsNullOrEmpty(jwtKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(senderEmail) ? "Found" : "Empty")}");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Key Vault configuration failed: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
     }
+}
+else
+{
+    Console.WriteLine("Key Vault URI not found in configuration");
 }
 
 // Add services to the container
@@ -34,9 +46,21 @@ if (!string.IsNullOrEmpty(connectionString))
 {
     Console.WriteLine($"DB Host: {(connectionString.Contains("localhost") ? "localhost" : "remote")}");
 }
+else
+{
+    Console.WriteLine("WARNING: Database connection string is empty!");
+}
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+try
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(connectionString));
+    Console.WriteLine("DbContext configured successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"DbContext configuration failed: {ex.Message}");
+}
 
 // Add caching
 builder.Services.AddMemoryCache();
@@ -87,11 +111,15 @@ builder.Services.AddHttpClient<NotificationService>();
 // Add SignalR
 builder.Services.AddSignalR();
 
+// Add Application Insights
+builder.Services.AddApplicationInsightsTelemetry();
+
 // Add logging
 builder.Services.AddLogging(config =>
 {
     config.AddConsole();
     config.AddDebug();
+    config.AddApplicationInsights();
 });
 
 // Add controllers
