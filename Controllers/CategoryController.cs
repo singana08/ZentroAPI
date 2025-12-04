@@ -41,9 +41,11 @@ public class CategoryController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("=== CategoryController: Starting GetCategoriesWithSubcategories ===");
             _logger.LogInformation("Fetching all categories with active subcategories");
 
             var categories = await _categoryService.GetAllCategoriesWithSubcategoriesAsync();
+            _logger.LogInformation("=== CategoryService returned {Count} categories ===", categories?.Count ?? 0);
 
             var response = new CategoryApiResponse
             {

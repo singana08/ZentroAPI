@@ -81,11 +81,13 @@ else
 }
 
 // Add custom services
+Console.WriteLine("=== Registering services ===");
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IJwtService, SecureJwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+Console.WriteLine("CategoryService registered");
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -292,6 +294,18 @@ catch (Exception ex)
 }
 
 // Configure the HTTP request pipeline
+Console.WriteLine("=== Configuring HTTP pipeline ===");
+
+// Add global exception handler
+app.UseExceptionHandler("/error");
+app.Map("/error", (HttpContext context) =>
+{
+    var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    Console.WriteLine($"=== GLOBAL EXCEPTION: {exception?.Message} ===");
+    Console.WriteLine($"=== STACK TRACE: {exception?.StackTrace} ===");
+    return Results.Problem("An error occurred");
+});
+
 // Add global error handling
 app.UseMiddleware<ZentroAPI.Middleware.ErrorHandlingMiddleware>();
 
@@ -349,5 +363,9 @@ app.MapGet("/api/health/status", () => Results.Ok(new
     .WithName("HealthStatus");
 
 app.MapGet("/", () => Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow }));
+
+Console.WriteLine("=== APPLICATION STARTUP COMPLETE ===");
+Console.WriteLine($"=== Environment: {app.Environment.EnvironmentName} ===");
+Console.WriteLine($"=== Timestamp: {DateTime.UtcNow} ===");
 
 app.Run();
