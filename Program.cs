@@ -24,10 +24,15 @@ static void WriteLog(string message)
 
 WriteLog("=== APPLICATION STARTING ===");
 
-// Add Azure Key Vault configuration
+// Add Azure Key Vault configuration - DISABLED until managed identity is configured
 var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
 WriteLog($"Key Vault URI: {keyVaultUri}");
+WriteLog($"Environment: {builder.Environment.EnvironmentName}");
 
+// Skip Key Vault for now due to managed identity issues
+WriteLog("Skipping Key Vault configuration - using appsettings values");
+
+/*
 // Check managed identity
 try
 {
@@ -76,6 +81,7 @@ catch (Exception ex)
         WriteLog($"Inner exception: {ex.InnerException.Message}");
     }
 }
+*/
 
 // Add services to the container
 var connectionString = builder.Configuration["DatabaseConnectionString"] 

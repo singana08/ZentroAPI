@@ -18,9 +18,10 @@ public class ApiLoggingMiddleware
         var startTime = DateTime.UtcNow;
         var requestId = Guid.NewGuid().ToString("N")[..8];
         
-        // Log request
-        _logger.LogInformation("[{RequestId}] {Method} {Path} - Started", 
-            requestId, context.Request.Method, context.Request.Path);
+        // Log request with full details
+        var fullUrl = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.Path}{context.Request.QueryString}";
+        _logger.LogInformation("[{RequestId}] {Method} {FullUrl} - Started", 
+            requestId, context.Request.Method, fullUrl);
 
         // Capture response
         var originalBodyStream = context.Response.Body;
