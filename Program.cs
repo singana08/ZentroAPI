@@ -27,33 +27,60 @@ WriteLog("=== APPLICATION STARTING ===");
 // Add Azure Key Vault configuration
 var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
 WriteLog($"Key Vault URI: {keyVaultUri}");
-if (!string.IsNullOrEmpty(keyVaultUri))
+
+// Check managed identity
+try
 {
-    try
+    var credential = new DefaultAzureCredential();
+    WriteLog("DefaultAzureCredential created successfully");
+    
+    if (!string.IsNullOrEmpty(keyVaultUri))
     {
-        var credential = new DefaultAzureCredential();
-        builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
-        WriteLog("Key Vault configuration loaded successfully");
+        WriteLog("Attempting to connect to Key Vault...");
         
-        // Log what secrets we can access
+        // Test Key Vault access first
+        var secretClient = new SecretClient(new Uri(keyVaultUri), credential);
+        WriteLog("SecretClient created, testing access...");
+        
+        try
+        {
+            // Try to get a specific secret to test access
+            var testSecret = await secretClient.GetSecretAsync("DatabaseConnectionString");
+            WriteLog($"Key Vault access successful - DatabaseConnectionString found: {testSecret.Value.Value?.Length > 0}");
+        }
+        catch (Exception secretEx)
+        {
+            WriteLog($"Key Vault secret access failed: {secretEx.Message}");
+        }
+        
+        builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
+        WriteLog("Key Vault configuration added to builder");
+        
+        // Log what secrets we can access after configuration
         var dbConn = builder.Configuration["DatabaseConnectionString"];
         var jwtKey = builder.Configuration["JwtSecretKey"];
         var senderEmail = builder.Configuration["SenderEmail"];
-        WriteLog($"Secrets loaded - DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}, JWT: {(!string.IsNullOrEmpty(jwtKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(senderEmail) ? "Found" : "Empty")}");
+        WriteLog($"Final check - DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}, JWT: {(!string.IsNullOrEmpty(jwtKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(senderEmail) ? "Found" : "Empty")}");
     }
-    catch (Exception ex)
+    else
     {
-        WriteLog($"Key Vault configuration failed: {ex.Message}");
-        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        WriteLog("Key Vault URI not found in configuration");
     }
 }
-else
+catch (Exception ex)
 {
-    WriteLog("Key Vault URI not found in configuration");
+    WriteLog($"Key Vault setup failed: {ex.Message}");
+    WriteLog($"Exception type: {ex.GetType().Name}");
+    if (ex.InnerException != null)
+    {
+        WriteLog($"Inner exception: {ex.InnerException.Message}");
+    }
 }
 
 // Add services to the container
-var connectionString = builder.Configuration["DatabaseConnectionString"];
+var connectionString = builder.Configuration["DatabaseConnectionString"] 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+WriteLog($"Using connection string from: {(builder.Configuration["DatabaseConnectionString"] != null ? "Key Vault" : "appsettings")}");
 
 Console.WriteLine($"Connection String: {(string.IsNullOrEmpty(connectionString) ? "EMPTY" : "Found")}");
 if (!string.IsNullOrEmpty(connectionString))
