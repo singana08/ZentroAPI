@@ -362,7 +362,21 @@ app.MapGet("/api/health/status", () => Results.Ok(new
 }))
     .WithName("HealthStatus");
 
-app.MapGet("/", () => Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow }));
+app.MapGet("/", () => {
+    Console.WriteLine($"=== ROOT ENDPOINT HIT: {DateTime.UtcNow} ===");
+    return Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow });
+});
+
+app.MapGet("/debug", () => {
+    Console.WriteLine($"=== DEBUG ENDPOINT HIT: {DateTime.UtcNow} ===");
+    Console.Error.WriteLine($"=== ERROR LOG TEST: {DateTime.UtcNow} ===");
+    return Results.Ok(new { 
+        status = "debug", 
+        timestamp = DateTime.UtcNow,
+        environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+        logs = "Check console output"
+    });
+});
 
 Console.WriteLine("=== APPLICATION STARTUP COMPLETE ===");
 Console.WriteLine($"=== Environment: {app.Environment.EnvironmentName} ===");
