@@ -10,32 +10,46 @@ using Azure.Security.KeyVault.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add file logging for Azure
+var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
+Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+
+static void WriteLog(string message)
+{
+    var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
+    var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}\n";
+    File.AppendAllText(logPath, logMessage);
+    Console.WriteLine(logMessage.Trim());
+}
+
+WriteLog("=== APPLICATION STARTING ===");
+
 // Add Azure Key Vault configuration
 var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
-Console.WriteLine($"Key Vault URI: {keyVaultUri}");
+WriteLog($"Key Vault URI: {keyVaultUri}");
 if (!string.IsNullOrEmpty(keyVaultUri))
 {
     try
     {
         var credential = new DefaultAzureCredential();
         builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
-        Console.WriteLine("Key Vault configuration loaded successfully");
+        WriteLog("Key Vault configuration loaded successfully");
         
         // Log what secrets we can access
         var dbConn = builder.Configuration["DatabaseConnectionString"];
         var jwtKey = builder.Configuration["JwtSecretKey"];
         var senderEmail = builder.Configuration["SenderEmail"];
-        Console.WriteLine($"Secrets loaded - DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}, JWT: {(!string.IsNullOrEmpty(jwtKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(senderEmail) ? "Found" : "Empty")}");
+        WriteLog($"Secrets loaded - DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}, JWT: {(!string.IsNullOrEmpty(jwtKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(senderEmail) ? "Found" : "Empty")}");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Key Vault configuration failed: {ex.Message}");
+        WriteLog($"Key Vault configuration failed: {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
     }
 }
 else
 {
-    Console.WriteLine("Key Vault URI not found in configuration");
+    WriteLog("Key Vault URI not found in configuration");
 }
 
 // Add services to the container
@@ -368,18 +382,30 @@ app.MapGet("/", () => {
 });
 
 app.MapGet("/debug", () => {
-    Console.WriteLine($"=== DEBUG ENDPOINT HIT: {DateTime.UtcNow} ===");
-    Console.Error.WriteLine($"=== ERROR LOG TEST: {DateTime.UtcNow} ===");
+    WriteLog($"=== DEBUG ENDPOINT HIT: {DateTime.UtcNow} ===");
     return Results.Ok(new { 
         status = "debug", 
         timestamp = DateTime.UtcNow,
         environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-        logs = "Check console output"
+        logs = "Check /logs endpoint"
     });
 });
 
-Console.WriteLine("=== APPLICATION STARTUP COMPLETE ===");
-Console.WriteLine($"=== Environment: {app.Environment.EnvironmentName} ===");
-Console.WriteLine($"=== Timestamp: {DateTime.UtcNow} ===");
+app.MapGet("/logs", () => {
+    try {
+        var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
+        if (File.Exists(logPath)) {
+            var logs = File.ReadAllText(logPath);
+            return Results.Text(logs, "text/plain");
+        }
+        return Results.Text("No logs found", "text/plain");
+    } catch (Exception ex) {
+        return Results.Text($"Error reading logs: {ex.Message}", "text/plain");
+    }
+});
+
+WriteLog("=== APPLICATION STARTUP COMPLETE ===");
+WriteLog($"=== Environment: {app.Environment.EnvironmentName} ===");
+WriteLog($"=== Timestamp: {DateTime.UtcNow} ===");
 
 app.Run();
