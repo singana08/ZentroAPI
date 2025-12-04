@@ -18,11 +18,12 @@ public class EmailService : IEmailService
         IConfiguration configuration)
     {
         _logger = logger;
-        _senderEmail = configuration["EmailSenderEmail"] ?? string.Empty;
-        _senderPassword = configuration["EmailSenderPassword"] ?? string.Empty;
-        _smtpHost = configuration["SmtpHost"] ?? "smtp.gmail.com";
-        _smtpPort = int.TryParse(configuration["SmtpPort"], out var port) ? port : 587;
-        _senderName = configuration["EmailSettings:SenderName"] ?? "Zentro";
+        var emailSettings = configuration.GetSection("EmailSettings");
+        _senderEmail = emailSettings.GetValue<string>("SenderEmail") ?? string.Empty;
+        _senderPassword = emailSettings.GetValue<string>("SenderPassword") ?? string.Empty;
+        _smtpHost = emailSettings.GetValue<string>("SmtpHost") ?? "smtp.gmail.com";
+        _smtpPort = emailSettings.GetValue<int>("SmtpPort", 587);
+        _senderName = emailSettings.GetValue<string>("SenderName") ?? "Zentro";
         
         _logger.LogInformation($"Email config - Host: {_smtpHost}, Port: {_smtpPort}, Email: {(!string.IsNullOrEmpty(_senderEmail) ? "Found" : "Empty")}");
     }
