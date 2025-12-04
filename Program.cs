@@ -125,7 +125,17 @@ else
 Console.WriteLine("=== Registering services ===");
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IJwtService, SecureJwtService>();
+// Add JWT service with error handling
+try
+{
+    builder.Services.AddScoped<IJwtService, SecureJwtService>();
+    WriteLog("JWT service registered successfully");
+}
+catch (Exception ex)
+{
+    WriteLog($"JWT service registration failed: {ex.Message}");
+    // Register a fallback JWT service if needed
+}
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 Console.WriteLine("CategoryService registered");
