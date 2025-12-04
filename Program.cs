@@ -347,6 +347,9 @@ app.Map("/error", (HttpContext context) =>
     return Results.Problem("An error occurred");
 });
 
+// Add API logging
+app.UseMiddleware<ZentroAPI.Middleware.ApiLoggingMiddleware>();
+
 // Add global error handling
 app.UseMiddleware<ZentroAPI.Middleware.ErrorHandlingMiddleware>();
 
