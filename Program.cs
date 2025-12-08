@@ -200,18 +200,39 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add authentication
-var secretKey = builder.Configuration["JwtSecretKey"] ?? "TempSecretKeyForStartup123456789012345678901234567890";
-var issuer = "ZentroAPI";
-var audience = "ZentroMobileApp";
+// Add authentication - Use same key source as SecureJwtService
+var secretKey = builder.Configuration["JwtSecretKey"] 
+    ?? builder.Configuration["JwtSettings:SecretKey"] 
+    ?? "TempSecretKeyForStartup123456789012345678901234567890";
+var issuer = builder.Configuration["JwtSettings:Issuer"] ?? "ZentroAPI";
+var audience = builder.Configuration["JwtSettings:Audience"] ?? "ZentroMobileApp";
+
+Console.WriteLine($"JWT Config - Using secret from: {(builder.Configuration["JwtSecretKey"] != null ? "Key Vault" : "appsettings")}");
+Console.WriteLine($"JWT Config - Issuer: {issuer}, Audience: {audience}");
 
 // Ensure minimum key length
 if (secretKey.Length < 32)
 {
     secretKey = "TempSecretKeyForStartup123456789012345678901234567890";
+    Console.WriteLine("JWT Config - Using fallback secret key");
 }
 
-var key = Encoding.ASCII.GetBytes(secretKey);
+// Use same key encoding logic as SecureJwtService
+byte[] key;
+try
+{
+    // Try Base64 first (recommended)
+    key = Convert.FromBase64String(secretKey);
+    Console.WriteLine("JWT Config - Using Base64 decoded key");
+}
+catch
+{
+    // Fallback to UTF8 encoding
+    key = Encoding.UTF8.GetBytes(secretKey);
+    Console.WriteLine("JWT Config - Using UTF8 encoded key");
+}
+
+Console.WriteLine($"JWT Config - Key length: {key.Length} bytes");
 
 builder.Services.AddAuthentication(options =>
 {
