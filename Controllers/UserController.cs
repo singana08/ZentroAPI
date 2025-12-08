@@ -35,7 +35,12 @@ public class UserController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("=== GetProfile endpoint called ===");
+            _logger.LogInformation($"User.Identity.IsAuthenticated: {User.Identity?.IsAuthenticated}");
+            _logger.LogInformation($"User claims count: {User.Claims.Count()}");
+            
             var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            _logger.LogInformation($"Extracted profileId: {profileId}");
             if (!profileId.HasValue)
             {
                 return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
