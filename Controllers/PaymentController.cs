@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Stripe;
 using ZentroAPI.Services;
-using ZentroAPI.DTOs;
-using ZentroAPI.Utilities;
 
 namespace ZentroAPI.Controllers;
 
@@ -11,63 +10,142 @@ namespace ZentroAPI.Controllers;
 [Authorize]
 public class PaymentController : ControllerBase
 {
-    private readonly IPaymentService _paymentService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentController> _logger;
 
-    public PaymentController(IPaymentService paymentService, ILogger<PaymentController> logger)
+    public PaymentController(IConfiguration configuration, ILogger<PaymentController> logger)
     {
-        _paymentService = paymentService;
+        _configuration = configuration;
         _logger = logger;
+        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
     }
 
-    [HttpPost("create-intent")]
+    [HttpPost("create-payment-intent")]
     public async Task<IActionResult> CreatePaymentIntent([FromBody] CreatePaymentIntentRequest request)
     {
-        var result = await _paymentService.CreatePaymentIntentAsync(request.Amount, request.Currency ?? "usd");
-        
-        if (result.Success)
+        try
         {
-            return Ok(new PaymentIntentResponse
+            var options = new PaymentIntentCreateOptions
             {
-                Success = true,
-                Message = result.Message,
-                PaymentIntentId = result.PaymentIntentId
-            });
-        }
+                Amount = request.Amount,
+                Currency = "inr",
+                PaymentMethodTypes = new List<string> { "card" },
+                Metadata = new Dictionary<string, string>
+                {
+                    ["job_id"] = request.JobId,
+                    ["requester_id"] = User.Identity.Name,
+                    ["provider_id"] = request.ProviderId,
+                    ["quote"] = request.Quote.ToString(),
+                    ["platform_fee"] = request.PlatformFee.ToString()
+                }
+            };
 
-        return BadRequest(new ErrorResponse { Message = result.Message });
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.CreateAsync(options);
+
+            return Ok(new { client_secret = paymentIntent.ClientSecret });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating payment intent");
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
-    [HttpPost("process")]
-    public async Task<IActionResult> ProcessPayment([FromBody] CreatePaymentRequest request)
+    [HttpPost("webhook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> StripeWebhook()
     {
-        var userIdString = User.GetUserId();
-        if (!Guid.TryParse(userIdString, out var userId))
-        {
-            return BadRequest(new ErrorResponse { Message = "Invalid user ID" });
-        }
-        
-        var result = await _paymentService.ProcessPaymentAsync(
-            request.ServiceRequestId, userId, request.PayeeId, request.Amount, request.PaymentIntentId);
+        var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+        var endpointSecret = _configuration["Stripe:WebhookSecret"];
 
-        if (result.Success)
+        try
         {
-            return Ok(new { success = true, message = result.Message });
-        }
+            var stripeEvent = EventUtility.ConstructEvent(
+                json,
+                Request.Headers["Stripe-Signature"],
+                endpointSecret
+            );
 
-        return BadRequest(new ErrorResponse { Message = result.Message });
+            switch (stripeEvent.Type)
+            {
+                case Events.PaymentIntentSucceeded:
+                    var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
+                    await HandlePaymentSuccess(paymentIntent);
+                    break;
+
+                case Events.PaymentIntentPaymentFailed:
+                    var failedPayment = stripeEvent.Data.Object as PaymentIntent;
+                    await HandlePaymentFailure(failedPayment);
+                    break;
+            }
+
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Webhook error");
+            return BadRequest();
+        }
     }
 
-    [HttpGet("history")]
-    public async Task<IActionResult> GetPaymentHistory()
+    private async Task HandlePaymentSuccess(PaymentIntent paymentIntent)
     {
-        var userIdString = User.GetUserId();
-        if (!Guid.TryParse(userIdString, out var userId))
-        {
-            return BadRequest(new ErrorResponse { Message = "Invalid user ID" });
-        }
+        var jobId = paymentIntent.Metadata["job_id"];
+        var providerId = paymentIntent.Metadata["provider_id"];
+        var quote = decimal.Parse(paymentIntent.Metadata["quote"]);
+        var commission = quote * 0.10m;
+        var providerPayout = quote - commission;
+
+        // Transfer funds to provider
+        await TransferToProvider(providerId, (long)(providerPayout * 100), jobId);
         
-        var payments = await _paymentService.GetUserPaymentsAsync(userId);
-        return Ok(payments);
+        // Update booking status
+        // TODO: Update booking status in database
+        
+        _logger.LogInformation($"Payment succeeded for job {jobId}, transferred ₹{providerPayout} to provider {providerId}");
     }
+
+    private async Task HandlePaymentFailure(PaymentIntent paymentIntent)
+    {
+        var jobId = paymentIntent.Metadata["job_id"];
+        _logger.LogWarning($"Payment failed for job {jobId}");
+        
+        // TODO: Update booking status and notify users
+    }
+
+    private async Task TransferToProvider(string providerId, long amount, string jobId)
+    {
+        try
+        {
+            var options = new TransferCreateOptions
+            {
+                Amount = amount,
+                Currency = "inr",
+                Destination = $"acct_{providerId}", // Provider's Stripe Connect account
+                Metadata = new Dictionary<string, string>
+                {
+                    ["job_id"] = jobId,
+                    ["type"] = "service_payment"
+                }
+            };
+
+            var service = new TransferService();
+            await service.CreateAsync(options);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to transfer funds to provider {providerId}");
+            throw;
+        }
+    }
+}
+
+public class CreatePaymentIntentRequest
+{
+    public long Amount { get; set; }
+    public string JobId { get; set; }
+    public string ProviderId { get; set; }
+    public decimal Quote { get; set; }
+    public decimal PlatformFee { get; set; }
 }
