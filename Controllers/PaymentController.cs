@@ -17,14 +17,7 @@ public class PaymentController : ControllerBase
     {
         _configuration = configuration;
         _logger = logger;
-        var stripeSecretKey = _configuration["Stripe:SecretKey"];
-        if (string.IsNullOrEmpty(stripeSecretKey))
-        {
-            _logger.LogError("Stripe SecretKey is not configured");
-            throw new InvalidOperationException("Stripe SecretKey is not configured");
-        }
-        StripeConfiguration.ApiKey = stripeSecretKey;
-        _logger.LogInformation("Stripe API key configured successfully");
+        _logger.LogInformation("Payment controller initialized with mock payment processing");
     }
 
     [HttpPost("create-payment-intent")]
@@ -32,25 +25,12 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            var options = new PaymentIntentCreateOptions
-            {
-                Amount = request.Amount,
-                Currency = "inr",
-                PaymentMethodTypes = new List<string> { "card" },
-                Metadata = new Dictionary<string, string>
-                {
-                    ["job_id"] = request.JobId,
-                    ["requester_id"] = User.Identity.Name,
-                    ["provider_id"] = request.ProviderId,
-                    ["quote"] = request.Quote.ToString(),
-                    ["platform_fee"] = request.PlatformFee.ToString()
-                }
-            };
-
-            var service = new PaymentIntentService();
-            var paymentIntent = await service.CreateAsync(options);
-
-            return Ok(new { client_secret = paymentIntent.ClientSecret });
+            // Mock payment intent for testing
+            var mockClientSecret = $"pi_mock_{Guid.NewGuid():N}_secret_mock";
+            
+            _logger.LogInformation($"Mock payment intent created for job {request.JobId}, amount {request.Amount}");
+            
+            return Ok(new { client_secret = mockClientSecret });
         }
         catch (Exception ex)
         {
