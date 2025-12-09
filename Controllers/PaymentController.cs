@@ -324,10 +324,4 @@ public class ProcessPaymentRequest
 public class HandleActionRequest
 {
     public string PaymentIntentId { get; set; } = string.Empty;
-}est
-{
-    public string PaymentIntentId { get; set; } = string.Empty;
-    public string ServiceRequestId { get; set; } = string.Empty;
-    public string PayeeId { get; set; } = string.Empty;
-    public long Amount { get; set; }
 }
