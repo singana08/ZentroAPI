@@ -48,39 +48,15 @@ public class PaymentController : ControllerBase
             var service = new PaymentIntentService();
             var paymentIntent = await service.GetAsync(paymentIntentId);
             
-            // Update payment and transaction status
-            var payment = await _context.Payments
-                .FirstOrDefaultAsync(p => p.PaymentIntentId == paymentIntentId);
-                
+            // Update transaction status
             var transaction = await _context.Transactions
                 .FirstOrDefaultAsync(t => t.PaymentIntentId == paymentIntentId);
                 
-            if (payment != null)
-            {
-                payment.Status = paymentIntent.Status switch
-                {
-                    "succeeded" => PaymentStatus.Completed,
-                    "processing" => PaymentStatus.Processing,
-                    "requires_payment_method" => PaymentStatus.Failed,
-                    "canceled" => PaymentStatus.Failed,
-                    _ => PaymentStatus.Pending
-                };
-                
-                if (payment.Status == PaymentStatus.Completed)
-                {
-                    payment.CompletedAt = DateTime.UtcNow;
-                }
-            }
-            
             if (transaction != null)
             {
                 transaction.Status = paymentIntent.Status;
                 transaction.ErrorMessage = paymentIntent.LastPaymentError?.Message;
                 transaction.UpdatedAt = DateTime.UtcNow;
-            }
-            
-            if (payment != null || transaction != null)
-            {
                 await _context.SaveChangesAsync();
             }
             
@@ -153,22 +129,7 @@ public class PaymentController : ControllerBase
             var service = new PaymentIntentService();
             var paymentIntent = await service.CreateAsync(options);
             
-            // Save payment record to database
-            var payment = new Payment
-            {
-                Id = Guid.NewGuid(),
-                ServiceRequestId = Guid.Parse(request.JobId),
-                PayerId = Guid.Parse(userId ?? Guid.Empty.ToString()),
-                PayeeId = Guid.Parse(request.ProviderId),
-                Amount = request.Amount / 100m, // Convert from cents to rupees
-                Status = PaymentStatus.Pending,
-                Method = Models.PaymentMethod.Card,
-                TransactionId = paymentIntent.Id,
-                PaymentIntentId = paymentIntent.Id,
-                CreatedAt = DateTime.UtcNow
-            };
-            
-            // Save transaction record
+            // Log transaction
             var transaction = new Transaction
             {
                 PaymentIntentId = paymentIntent.Id,
@@ -183,11 +144,10 @@ public class PaymentController : ControllerBase
                 CreatedAt = DateTime.UtcNow
             };
             
-            _context.Payments.Add(payment);
             _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
             
-            _logger.LogInformation($"Payment and transaction records saved: {payment.Id}, Transaction: {transaction.Id}");
+            _logger.LogInformation($"Transaction logged: {paymentIntent.Id} for user {userId}");
             
             return Ok(new { 
                 clientSecret = paymentIntent.ClientSecret,
