@@ -52,6 +52,7 @@ public class SecureJwtService : IJwtService
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new("user_id", user.Id.ToString()), // Add user_id claim for API compatibility
                 new(ClaimTypes.Email, user.Email),
                 new(ClaimTypes.Role, role),
                 new("jti", Guid.NewGuid().ToString()), // JWT ID for tracking
