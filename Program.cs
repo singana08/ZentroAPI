@@ -14,12 +14,27 @@ var builder = WebApplication.CreateBuilder(args);
 var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
-static void WriteLog(string message)
+static void WriteLog(string message, string level = "INFO")
 {
     var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
-    var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}\n";
+    var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}\n";
     File.AppendAllText(logPath, logMessage);
     Console.WriteLine(logMessage.Trim());
+}
+
+static void WriteError(string message, Exception? ex = null)
+{
+    var errorMsg = ex != null ? $"{message} - Exception: {ex.Message}" : message;
+    WriteLog(errorMsg, "ERROR");
+    if (ex != null)
+    {
+        WriteLog($"Stack Trace: {ex.StackTrace}", "ERROR");
+    }
+}
+
+static void WriteWarning(string message)
+{
+    WriteLog(message, "WARN");
 }
 
 WriteLog("=== APPLICATION STARTING ===");
@@ -464,14 +479,28 @@ app.MapGet("/", () => {
     return Results.Ok(new { message = "Zentro API is running", timestamp = DateTime.UtcNow });
 });
 
-app.MapGet("/debug", () => {
+app.MapGet("/debug", (IConfiguration config) => {
     WriteLog($"=== DEBUG ENDPOINT HIT: {DateTime.UtcNow} ===");
-    return Results.Ok(new { 
-        status = "debug", 
+    
+    var debugInfo = new {
+        status = "debug",
         timestamp = DateTime.UtcNow,
         environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-        logs = "Check /logs endpoint"
-    });
+        configuration = new {
+            keyVaultUri = config["KeyVault:VaultUri"],
+            hasStripeKey = !string.IsNullOrEmpty(config["StripeSecretKey"]),
+            hasEmailSender = !string.IsNullOrEmpty(config["EmailSenderEmail"]),
+            hasDbConnection = !string.IsNullOrEmpty(config["DatabaseConnectionString"]) || !string.IsNullOrEmpty(config.GetConnectionString("DefaultConnection")),
+            hasJwtKey = !string.IsNullOrEmpty(config["JwtSecretKey"]) || !string.IsNullOrEmpty(config["JwtSettings:SecretKey"])
+        },
+        endpoints = new {
+            logs = "/logs",
+            swagger = "/swagger",
+            health = "/api/health/status"
+        }
+    };
+    
+    return Results.Ok(debugInfo);
 });
 
 app.MapGet("/logs", () => {
@@ -479,7 +508,35 @@ app.MapGet("/logs", () => {
         var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
         if (File.Exists(logPath)) {
             var logs = File.ReadAllText(logPath);
-            return Results.Text(logs, "text/plain");
+            var htmlLogs = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zentro API Logs</title>
+    <style>
+        body {{ font-family: 'Courier New', monospace; background: #1e1e1e; color: #d4d4d4; margin: 20px; }}
+        .log-container {{ background: #2d2d30; padding: 20px; border-radius: 5px; }}
+        .log-line {{ margin: 2px 0; padding: 2px 5px; }}
+        .error {{ background: #3c1e1e; color: #f48771; }}
+        .warning {{ background: #3c3c1e; color: #dcdcaa; }}
+        .info {{ color: #9cdcfe; }}
+        .timestamp {{ color: #608b4e; }}
+        .endpoint {{ color: #c586c0; font-weight: bold; }}
+        h1 {{ color: #4ec9b0; }}
+    </style>
+</head>
+<body>
+    <h1>Zentro API Application Logs</h1>
+    <div class='log-container'>
+        <pre>{System.Web.HttpUtility.HtmlEncode(logs).Replace("\n", "<br>")}</pre>
+    </div>
+    <script>
+        // Auto-refresh every 10 seconds
+        setTimeout(() => location.reload(), 10000);
+    </script>
+</body>
+</html>";
+            return Results.Content(htmlLogs, "text/html");
         }
         return Results.Text("No logs found", "text/plain");
     } catch (Exception ex) {

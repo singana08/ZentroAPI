@@ -12,6 +12,20 @@ public class ApiLoggingMiddleware
         _next = next;
         _logger = logger;
     }
+    
+    private static void WriteToFile(string message)
+    {
+        try
+        {
+            var logPath = Path.Combine(Directory.GetCurrentDirectory(), "logs", "app.log");
+            var logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] {message}\n";
+            File.AppendAllText(logPath, logMessage);
+        }
+        catch
+        {
+            // Ignore file write errors
+        }
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -20,8 +34,9 @@ public class ApiLoggingMiddleware
         
         // Log request with full details
         var fullUrl = $"{context.Request.Scheme}://{context.Request.Host}{context.Request.Path}{context.Request.QueryString}";
-        _logger.LogInformation("[{RequestId}] {Method} {FullUrl} - Started", 
-            requestId, context.Request.Method, fullUrl);
+        var logMessage = $"[{requestId}] {context.Request.Method} {fullUrl} - Started";
+        _logger.LogInformation(logMessage);
+        WriteToFile($"API_REQUEST: {logMessage}");
 
         // Capture response
         var originalBodyStream = context.Response.Body;
@@ -34,7 +49,10 @@ public class ApiLoggingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[{RequestId}] Exception: {Message}", requestId, ex.Message);
+            var errorMsg = $"[{requestId}] EXCEPTION: {ex.Message}";
+            _logger.LogError(ex, errorMsg);
+            WriteToFile($"API_ERROR: {errorMsg}");
+            WriteToFile($"STACK_TRACE: {ex.StackTrace}");
             throw;
         }
         finally
@@ -42,9 +60,9 @@ public class ApiLoggingMiddleware
             var duration = DateTime.UtcNow - startTime;
             
             // Log response
-            _logger.LogInformation("[{RequestId}] {Method} {Path} - {StatusCode} - {Duration}ms", 
-                requestId, context.Request.Method, context.Request.Path, 
-                context.Response.StatusCode, duration.TotalMilliseconds);
+            var responseMsg = $"[{requestId}] {context.Request.Method} {context.Request.Path} - {context.Response.StatusCode} - {duration.TotalMilliseconds:F2}ms";
+            _logger.LogInformation(responseMsg);
+            WriteToFile($"API_RESPONSE: {responseMsg}");
 
             // Copy response back
             responseBody.Seek(0, SeekOrigin.Begin);
