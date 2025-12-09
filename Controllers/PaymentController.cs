@@ -98,6 +98,36 @@ public class PaymentController : ControllerBase
         }
     }
 
+    [HttpPost("confirm-payment")]
+    public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
+    {
+        try
+        {
+            var service = new PaymentIntentService();
+            var options = new PaymentIntentConfirmOptions
+            {
+                PaymentMethod = request.PaymentMethodId,
+                ReturnUrl = request.ReturnUrl
+            };
+            
+            var paymentIntent = await service.ConfirmAsync(request.PaymentIntentId, options);
+            
+            _logger.LogInformation($"Payment confirmation attempted: {paymentIntent.Id}, Status: {paymentIntent.Status}");
+            
+            return Ok(new {
+                status = paymentIntent.Status,
+                clientSecret = paymentIntent.ClientSecret,
+                requiresAction = paymentIntent.Status == "requires_action",
+                nextAction = paymentIntent.NextAction
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error confirming payment");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("create-payment-intent")]
     public async Task<IActionResult> CreatePaymentIntent([FromBody] CreatePaymentIntentRequest request)
     {
@@ -109,6 +139,9 @@ public class PaymentController : ControllerBase
             {
                 Amount = request.Amount,
                 Currency = "inr",
+                PaymentMethodTypes = new List<string> { "card" },
+                ConfirmationMethod = "manual",
+                Confirm = false,
                 Metadata = new Dictionary<string, string>
                 {
                     { "job_id", request.JobId },
@@ -181,4 +214,11 @@ public class CreatePaymentIntentRequest
     public string ProviderId { get; set; }
     public decimal Quote { get; set; }
     public decimal PlatformFee { get; set; }
+}
+
+public class ConfirmPaymentRequest
+{
+    public string PaymentIntentId { get; set; } = string.Empty;
+    public string PaymentMethodId { get; set; } = string.Empty;
+    public string? ReturnUrl { get; set; }
 }
