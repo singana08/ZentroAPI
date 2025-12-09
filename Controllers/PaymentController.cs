@@ -139,7 +139,7 @@ public class PaymentController : ControllerBase
             {
                 Amount = request.Amount,
                 Currency = "inr",
-                PaymentMethodTypes = new List<string> { "card" },
+                PaymentMethodTypes = new List<string> { "card", "upi" },
                 ConfirmationMethod = "manual",
                 Confirm = false,
                 Metadata = new Dictionary<string, string>
