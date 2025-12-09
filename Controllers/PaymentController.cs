@@ -163,6 +163,110 @@ public class PaymentController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("process")]
+    public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+        
+        try
+        {
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == request.PaymentIntentId);
+                
+            if (transaction == null)
+            {
+                _logger.LogWarning($"Transaction not found for payment intent {request.PaymentIntentId}");
+                return NotFound(new { error = "Transaction not found" });
+            }
+
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.GetAsync(request.PaymentIntentId);
+
+            if (paymentIntent.Status != "succeeded")
+            {
+                _logger.LogWarning($"Payment not succeeded. Status: {paymentIntent.Status}");
+                return BadRequest(new { error = $"Payment status is {paymentIntent.Status}, expected succeeded" });
+            }
+
+            transaction.Status = "succeeded";
+            transaction.UpdatedAt = DateTime.UtcNow;
+            
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Payment processed successfully: {request.PaymentIntentId}");
+
+            return Ok(new {
+                success = true,
+                message = "Payment processed successfully",
+                transactionId = transaction.Id,
+                paymentIntentId = request.PaymentIntentId,
+                status = "succeeded",
+                amount = transaction.Amount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing payment");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("history")]
+    public async Task<IActionResult> GetPaymentHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+        
+        try
+        {
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { error = "User not authenticated" });
+            }
+
+            var query = _context.Transactions
+                .Where(t => t.UserId == userId)
+                .OrderByDescending(t => t.CreatedAt);
+
+            var total = await query.CountAsync();
+            
+            var transactions = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(t => new {
+                    t.Id,
+                    t.PaymentIntentId,
+                    t.JobId,
+                    t.ProviderId,
+                    t.Amount,
+                    t.Currency,
+                    t.Status,
+                    t.Quote,
+                    t.PlatformFee,
+                    t.CreatedAt,
+                    t.UpdatedAt
+                })
+                .ToListAsync();
+
+            _logger.LogInformation($"Retrieved {transactions.Count} payment history records for user {userId}");
+
+            return Ok(new {
+                success = true,
+                data = transactions,
+                pagination = new {
+                    page,
+                    pageSize,
+                    total,
+                    pages = (int)Math.Ceiling(total / (double)pageSize)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving payment history");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
 
 public class CreatePaymentIntentRequest
@@ -179,4 +283,12 @@ public class ConfirmPaymentRequest
     public string PaymentIntentId { get; set; } = string.Empty;
     public string PaymentMethodId { get; set; } = string.Empty;
     public string? ReturnUrl { get; set; }
+}
+
+public class ProcessPaymentRequest
+{
+    public string PaymentIntentId { get; set; } = string.Empty;
+    public string ServiceRequestId { get; set; } = string.Empty;
+    public string PayeeId { get; set; } = string.Empty;
+    public long Amount { get; set; }
 }
