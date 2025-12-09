@@ -48,9 +48,12 @@ public class PaymentController : ControllerBase
             var service = new PaymentIntentService();
             var paymentIntent = await service.GetAsync(paymentIntentId);
             
-            // Update payment status
+            // Update payment and transaction status
             var payment = await _context.Payments
                 .FirstOrDefaultAsync(p => p.PaymentIntentId == paymentIntentId);
+                
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == paymentIntentId);
                 
             if (payment != null)
             {
@@ -67,7 +70,17 @@ public class PaymentController : ControllerBase
                 {
                     payment.CompletedAt = DateTime.UtcNow;
                 }
-                
+            }
+            
+            if (transaction != null)
+            {
+                transaction.Status = paymentIntent.Status;
+                transaction.ErrorMessage = paymentIntent.LastPaymentError?.Message;
+                transaction.UpdatedAt = DateTime.UtcNow;
+            }
+            
+            if (payment != null || transaction != null)
+            {
                 await _context.SaveChangesAsync();
             }
             
@@ -124,10 +137,26 @@ public class PaymentController : ControllerBase
                 CreatedAt = DateTime.UtcNow
             };
             
+            // Save transaction record
+            var transaction = new Transaction
+            {
+                PaymentIntentId = paymentIntent.Id,
+                UserId = userId ?? "unknown",
+                JobId = request.JobId,
+                ProviderId = request.ProviderId,
+                Amount = request.Amount,
+                Currency = "inr",
+                Status = paymentIntent.Status,
+                Quote = request.Quote,
+                PlatformFee = request.PlatformFee,
+                CreatedAt = DateTime.UtcNow
+            };
+            
             _context.Payments.Add(payment);
+            _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
             
-            _logger.LogInformation($"Payment record saved: {payment.Id} for Stripe intent: {paymentIntent.Id}");
+            _logger.LogInformation($"Payment and transaction records saved: {payment.Id}, Transaction: {transaction.Id}");
             
             return Ok(new { 
                 clientSecret = paymentIntent.ClientSecret,
