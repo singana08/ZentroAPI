@@ -18,9 +18,11 @@ public class PaymentController : ControllerBase
         _configuration = configuration;
         _logger = logger;
         
-        // Initialize Stripe with secret key
-        var stripeSecretKey = _configuration["StripeSecretKey"] ?? "sk_test_51SZb3FSMWgNWNSmya3XMIxRsDKA4E7SNpqKaSvBFHCBDwUNPPi6LBi5RiUkFXs7SuS32fiNdx5jqC1D2lpiCVjBs00iPRDvawS";
+        // Initialize Stripe with secret key from Key Vault
+        var stripeSecretKey = _configuration["StripeSecretKey"];
         StripeConfiguration.ApiKey = stripeSecretKey;
+        
+        _logger.LogInformation($"Stripe initialized with key from Key Vault: {!string.IsNullOrEmpty(stripeSecretKey)}");
         
         _logger.LogInformation("Payment controller initialized with Stripe integration");
     }
@@ -28,19 +30,8 @@ public class PaymentController : ControllerBase
     [HttpGet("config")]
     public IActionResult GetPaymentConfig()
     {
-        try
-        {
-            var publishableKey = _configuration["StripePublishableKey"] ?? "pk_test_51SZb3FSMWgNWNSmyFlpUoBqHu1sZnLrq47lofvJMfE5Tc8jeRFRaHEPegMDMzUKphMBRyVpt3VVh1jds5Xr85GHq00DdteDhl6";
-            
-            return Ok(new { 
-                publishableKey = publishableKey
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting payment config");
-            return BadRequest(new { error = ex.Message });
-        }
+        var publishableKey = _configuration["StripePublishableKey"];
+        return Ok(new { publishableKey });
     }
 
     [HttpPost("create-payment-intent")]
