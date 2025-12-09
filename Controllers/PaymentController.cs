@@ -118,7 +118,7 @@ public class PaymentController : ControllerBase
                 PayeeId = Guid.Parse(request.ProviderId),
                 Amount = request.Amount / 100m, // Convert from cents to rupees
                 Status = PaymentStatus.Pending,
-                Method = PaymentMethod.CreditCard,
+                Method = Models.PaymentMethod.Card,
                 TransactionId = paymentIntent.Id,
                 PaymentIntentId = paymentIntent.Id,
                 CreatedAt = DateTime.UtcNow

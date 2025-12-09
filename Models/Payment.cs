@@ -30,6 +30,7 @@ public enum PaymentStatus
 
 public enum PaymentMethod
 {
+    Card,
     CreditCard,
     DebitCard,
     PayPal,
