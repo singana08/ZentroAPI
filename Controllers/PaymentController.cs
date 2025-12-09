@@ -64,7 +64,10 @@ public class PaymentController : ControllerBase
                 status = paymentIntent.Status,
                 amount = paymentIntent.Amount,
                 currency = paymentIntent.Currency,
-                lastPaymentError = paymentIntent.LastPaymentError?.Message
+                lastPaymentError = paymentIntent.LastPaymentError?.Message,
+                requiresAction = paymentIntent.Status == "requires_action",
+                nextAction = paymentIntent.NextAction,
+                clientSecret = paymentIntent.ClientSecret
             });
         }
         catch (Exception ex)
@@ -160,6 +163,31 @@ public class PaymentController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating payment intent");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("handle-action")]
+    public async Task<IActionResult> HandlePaymentAction([FromBody] HandleActionRequest request)
+    {
+        try
+        {
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.GetAsync(request.PaymentIntentId);
+            
+            _logger.LogInformation($"Handling payment action for: {paymentIntent.Id}, Status: {paymentIntent.Status}");
+            
+            return Ok(new {
+                status = paymentIntent.Status,
+                requiresAction = paymentIntent.Status == "requires_action",
+                nextAction = paymentIntent.NextAction,
+                clientSecret = paymentIntent.ClientSecret,
+                succeeded = paymentIntent.Status == "succeeded"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling payment action");
             return BadRequest(new { error = ex.Message });
         }
     }
@@ -286,6 +314,17 @@ public class ConfirmPaymentRequest
 }
 
 public class ProcessPaymentRequest
+{
+    public string PaymentIntentId { get; set; } = string.Empty;
+    public string ServiceRequestId { get; set; } = string.Empty;
+    public string PayeeId { get; set; } = string.Empty;
+    public long Amount { get; set; }
+}
+
+public class HandleActionRequest
+{
+    public string PaymentIntentId { get; set; } = string.Empty;
+}est
 {
     public string PaymentIntentId { get; set; } = string.Empty;
     public string ServiceRequestId { get; set; } = string.Empty;
