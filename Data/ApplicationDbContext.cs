@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Transaction> Transactions => Set<Transaction>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -468,6 +469,29 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(p => p.ServiceRequestId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Transaction configuration
+        modelBuilder.Entity<Transaction>(entity =>
+        {
+            entity.ToTable("transactions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PaymentIntentId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.JobId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ProviderId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Amount).IsRequired();
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(500);
+            entity.Property(e => e.Quote).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PlatformFee).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.PaymentIntentId).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+        });
 
 
     }
