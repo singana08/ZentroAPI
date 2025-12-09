@@ -115,7 +115,7 @@ public class PaymentController : ControllerBase
             {
                 Amount = request.Amount,
                 Currency = "inr",
-                PaymentMethodTypes = new List<string> { "card", "upi" },
+                PaymentMethodTypes = new List<string> { "card" },
                 Metadata = new Dictionary<string, string>
                 {
                     { "job_id", request.JobId },
