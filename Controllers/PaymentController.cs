@@ -77,16 +77,49 @@ public class PaymentController : ControllerBase
         }
     }
 
+    [HttpGet("callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> PaymentCallback([FromQuery] string payment_intent, [FromQuery] string payment_intent_client_secret)
+    {
+        try
+        {
+            var service = new PaymentIntentService();
+            var paymentIntent = await service.GetAsync(payment_intent);
+            
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == payment_intent);
+                
+            if (transaction != null)
+            {
+                transaction.Status = paymentIntent.Status;
+                transaction.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            
+            // Redirect to mobile app deep link
+            var deepLink = $"zentroapp://payment/callback?payment_intent={payment_intent}&status={paymentIntent.Status}";
+            return Redirect(deepLink);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in payment callback");
+            return Redirect($"zentroapp://payment/callback?error={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+
     [HttpPost("confirm-payment")]
     public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
     {
         try
         {
+            var baseUrl = $"{Request.Scheme}://{Request.Host}";
+            var returnUrl = $"{baseUrl}/api/payment/callback";
+            
             var service = new PaymentIntentService();
             var options = new PaymentIntentConfirmOptions
             {
                 PaymentMethod = request.PaymentMethodId,
-                ReturnUrl = request.ReturnUrl
+                ReturnUrl = returnUrl
             };
             
             var paymentIntent = await service.ConfirmAsync(request.PaymentIntentId, options);
@@ -176,6 +209,17 @@ public class PaymentController : ControllerBase
             var paymentIntent = await service.GetAsync(request.PaymentIntentId);
             
             _logger.LogInformation($"Handling payment action for: {paymentIntent.Id}, Status: {paymentIntent.Status}");
+            
+            // Update transaction status
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == request.PaymentIntentId);
+                
+            if (transaction != null)
+            {
+                transaction.Status = paymentIntent.Status;
+                transaction.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
             
             return Ok(new {
                 status = paymentIntent.Status,
