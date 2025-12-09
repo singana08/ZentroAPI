@@ -20,11 +20,11 @@ public class EmailService : IEmailService
         _logger = logger;
         
         // Try Key Vault first, then fallback to appsettings
-        _senderEmail = configuration["SenderEmail"] 
+        _senderEmail = configuration["EmailSenderEmail"] 
             ?? configuration["EmailSettings:SenderEmail"] 
             ?? string.Empty;
             
-        _senderPassword = configuration["SenderPassword"] 
+        _senderPassword = configuration["EmailSenderPassword"] 
             ?? configuration["EmailSettings:SenderPassword"] 
             ?? string.Empty;
             
