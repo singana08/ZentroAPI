@@ -44,18 +44,52 @@ var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
 WriteLog($"Key Vault URI: {keyVaultUri}");
 WriteLog($"Environment: {builder.Environment.EnvironmentName}");
 
-// Enable Key Vault configuration
+// Enable Key Vault configuration with detailed debugging
 if (!string.IsNullOrEmpty(keyVaultUri))
 {
     try
     {
-        var credential = new DefaultAzureCredential();
+        WriteLog($"Attempting Key Vault connection to: {keyVaultUri}");
+        
+        var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            ExcludeEnvironmentCredential = false,
+            ExcludeInteractiveBrowserCredential = true,
+            ExcludeAzureCliCredential = false,
+            ExcludeVisualStudioCredential = false,
+            ExcludeVisualStudioCodeCredential = true,
+            ExcludeManagedIdentityCredential = false,
+            ExcludeSharedTokenCacheCredential = true
+        });
+        
+        WriteLog("DefaultAzureCredential created, testing access...");
+        
+        // Test Key Vault access first
+        var secretClient = new SecretClient(new Uri(keyVaultUri), credential);
+        
+        try
+        {
+            WriteLog("Testing Key Vault access with a secret read...");
+            var testSecret = await secretClient.GetSecretAsync("StripeSecretKey");
+            WriteLog($"Key Vault access successful - StripeSecretKey found: {testSecret.Value.Value?.Length > 0}");
+        }
+        catch (Exception secretEx)
+        {
+            WriteError($"Key Vault secret access test failed", secretEx);
+        }
+        
         builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
-        WriteLog("Key Vault configuration added successfully");
+        WriteLog("Key Vault configuration added to builder");
+        
+        // Test configuration values after adding Key Vault
+        var stripeKey = builder.Configuration["StripeSecretKey"];
+        var emailSender = builder.Configuration["EmailSenderEmail"];
+        var dbConn = builder.Configuration["DatabaseConnectionString"];
+        WriteLog($"Config check - Stripe: {(!string.IsNullOrEmpty(stripeKey) ? "Found" : "Empty")}, Email: {(!string.IsNullOrEmpty(emailSender) ? "Found" : "Empty")}, DB: {(!string.IsNullOrEmpty(dbConn) ? "Found" : "Empty")}");
     }
     catch (Exception ex)
     {
-        WriteLog($"Key Vault setup failed: {ex.Message} - using appsettings fallback");
+        WriteError($"Key Vault setup failed - using appsettings fallback", ex);
     }
 }
 else
