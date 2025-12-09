@@ -17,7 +17,14 @@ public class PaymentController : ControllerBase
     {
         _configuration = configuration;
         _logger = logger;
-        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"];
+        var stripeSecretKey = _configuration["Stripe:SecretKey"];
+        if (string.IsNullOrEmpty(stripeSecretKey))
+        {
+            _logger.LogError("Stripe SecretKey is not configured");
+            throw new InvalidOperationException("Stripe SecretKey is not configured");
+        }
+        StripeConfiguration.ApiKey = stripeSecretKey;
+        _logger.LogInformation("Stripe API key configured successfully");
     }
 
     [HttpPost("create-payment-intent")]
