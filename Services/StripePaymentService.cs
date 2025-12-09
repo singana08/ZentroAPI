@@ -9,9 +9,19 @@ public class StripePaymentService : IStripePaymentService
     public StripePaymentService(IConfiguration configuration, ILogger<StripePaymentService> logger)
     {
         _logger = logger;
+        
+        // Try Key Vault first, then fallback to appsettings
         var stripeSecretKey = configuration["StripeSecretKey"] 
-            ?? configuration["StripeSettings:SecretKey"];
+            ?? configuration["Stripe:SecretKey"];
+            
+        if (string.IsNullOrEmpty(stripeSecretKey))
+        {
+            _logger.LogError("Stripe secret key not found in configuration");
+            throw new InvalidOperationException("Stripe secret key is required");
+        }
+        
         StripeConfiguration.ApiKey = stripeSecretKey;
+        _logger.LogInformation("Stripe configuration initialized successfully");
     }
 
     public async Task<(bool Success, string Message, string? PaymentIntentId, string? ClientSecret)> CreatePaymentIntentAsync(

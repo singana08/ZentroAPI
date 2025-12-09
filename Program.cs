@@ -29,8 +29,24 @@ var keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
 WriteLog($"Key Vault URI: {keyVaultUri}");
 WriteLog($"Environment: {builder.Environment.EnvironmentName}");
 
-// Skip Key Vault for now due to managed identity issues
-WriteLog("Skipping Key Vault configuration - using appsettings values");
+// Enable Key Vault configuration
+if (!string.IsNullOrEmpty(keyVaultUri))
+{
+    try
+    {
+        var credential = new DefaultAzureCredential();
+        builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), credential);
+        WriteLog("Key Vault configuration added successfully");
+    }
+    catch (Exception ex)
+    {
+        WriteLog($"Key Vault setup failed: {ex.Message} - using appsettings fallback");
+    }
+}
+else
+{
+    WriteLog("Key Vault URI not found - using appsettings values");
+}
 
 /*
 // Check managed identity

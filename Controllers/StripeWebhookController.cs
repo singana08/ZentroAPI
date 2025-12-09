@@ -14,8 +14,13 @@ public class StripeWebhookController : ControllerBase
     {
         _logger = logger;
         _webhookSecret = configuration["StripeWebhookSecret"] 
-            ?? configuration["StripeSettings:WebhookSecret"] 
+            ?? configuration["Stripe:WebhookSecret"] 
             ?? "";
+            
+        if (string.IsNullOrEmpty(_webhookSecret))
+        {
+            _logger.LogWarning("Stripe webhook secret not configured - webhook validation will fail");
+        }
     }
 
     [HttpPost]
