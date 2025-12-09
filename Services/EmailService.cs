@@ -18,12 +18,32 @@ public class EmailService : IEmailService
         IConfiguration configuration)
     {
         _logger = logger;
-        var emailSettings = configuration.GetSection("EmailSettings");
-        _senderEmail = emailSettings.GetValue<string>("SenderEmail") ?? string.Empty;
-        _senderPassword = emailSettings.GetValue<string>("SenderPassword") ?? string.Empty;
-        _smtpHost = emailSettings.GetValue<string>("SmtpHost") ?? "smtp.gmail.com";
-        _smtpPort = emailSettings.GetValue<int>("SmtpPort", 587);
-        _senderName = emailSettings.GetValue<string>("SenderName") ?? "Zentro";
+        
+        // Try Key Vault first, then fallback to appsettings
+        _senderEmail = configuration["SenderEmail"] 
+            ?? configuration["EmailSettings:SenderEmail"] 
+            ?? string.Empty;
+            
+        _senderPassword = configuration["SenderPassword"] 
+            ?? configuration["EmailSettings:SenderPassword"] 
+            ?? string.Empty;
+            
+        _smtpHost = configuration["SmtpHost"] 
+            ?? configuration["EmailSettings:SmtpHost"] 
+            ?? "smtp.gmail.com";
+            
+        _smtpPort = configuration.GetValue<int>("SmtpPort") != 0 
+            ? configuration.GetValue<int>("SmtpPort") 
+            : configuration.GetValue<int>("EmailSettings:SmtpPort", 587);
+            
+        _senderName = configuration["SenderName"] 
+            ?? configuration["EmailSettings:SenderName"] 
+            ?? "Zentro";
+        
+        if (string.IsNullOrEmpty(_senderEmail) || string.IsNullOrEmpty(_senderPassword))
+        {
+            _logger.LogWarning("Email configuration incomplete - email functionality may not work");
+        }
         
         _logger.LogInformation($"Email config - Host: {_smtpHost}, Port: {_smtpPort}, Email: {(!string.IsNullOrEmpty(_senderEmail) ? "Found" : "Empty")}");
     }
