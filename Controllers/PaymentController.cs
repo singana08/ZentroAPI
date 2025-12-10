@@ -228,8 +228,23 @@ public class PaymentController : ControllerBase
             }
             
             var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
-            var paymentSessionId = orderResponse.GetProperty("payment_session_id").GetString();
-            var paymentUrl = orderResponse.GetProperty("payment_links").GetProperty("web").GetString();
+            
+            // Safe property access
+            var paymentSessionId = orderResponse.TryGetProperty("payment_session_id", out var sessionProp) 
+                ? sessionProp.GetString() : null;
+            
+            var paymentUrl = "";
+            if (orderResponse.TryGetProperty("payment_links", out var linksProp) && 
+                linksProp.TryGetProperty("web", out var webProp))
+            {
+                paymentUrl = webProp.GetString() ?? "";
+            }
+            
+            if (string.IsNullOrEmpty(paymentSessionId))
+            {
+                _logger.LogError($"Missing payment_session_id in Cashfree response: {responseContent}");
+                return BadRequest(new { error = "Invalid Cashfree response - missing session ID" });
+            }
             
             // Log transaction
             var transaction = new Transaction
