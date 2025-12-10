@@ -38,12 +38,13 @@ public class PaymentController : ControllerBase
     [HttpGet("config")]
     public IActionResult GetPaymentConfig()
     {
-        var stripePublishableKey = _configuration["StripePublishableKey"];
+        var publishableKey = _configuration["StripePublishableKey"];
         var cashfreeAppId = _configuration["CashFreeAPPID"];
         
         return Ok(new { 
-            stripe = new { publishableKey = stripePublishableKey },
-            cashfree = new { appId = cashfreeAppId, environment = "sandbox" }
+            publishableKey = publishableKey,
+            cashfreeAppId = cashfreeAppId,
+            environment = "sandbox"
         });
     }
 
@@ -148,8 +149,8 @@ public class PaymentController : ControllerBase
     }
 
     // Cashfree Endpoints
-    [HttpPost("cashfree/create-order")]
-    public async Task<IActionResult> CreateCashfreeOrder([FromBody] CreatePaymentIntentRequest request)
+    [HttpPost("cashfree/create-payment")]
+    public async Task<IActionResult> CreateCashfreePayment([FromBody] CreatePaymentIntentRequest request)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
         
@@ -198,6 +199,7 @@ public class PaymentController : ControllerBase
             
             var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
             var paymentSessionId = orderResponse.GetProperty("payment_session_id").GetString();
+            var paymentUrl = orderResponse.GetProperty("payment_links").GetProperty("web").GetString();
             
             // Log transaction
             var transaction = new Transaction
@@ -220,17 +222,82 @@ public class PaymentController : ControllerBase
             _logger.LogInformation($"Cashfree order created: {orderId} for user {userId}");
             
             return Ok(new {
-                orderId = orderId,
-                paymentSessionId = paymentSessionId,
-                amount = request.Amount,
-                currency = "INR",
-                provider = "cashfree"
+                sessionId = paymentSessionId,
+                paymentUrl = paymentUrl,
+                orderId = orderId
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating Cashfree order");
             return BadRequest(new { error = ex.Message });
+        }
+    }
+    
+    [HttpPost("cashfree/process-upi")]
+    public async Task<IActionResult> ProcessUpiPayment([FromBody] ProcessUpiRequest request)
+    {
+        try
+        {
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
+            var baseUrl = "https://sandbox.cashfree.com/pg";
+            
+            // Find transaction by session ID (stored in PaymentIntentId for now)
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId.Contains(request.SessionId.Split('_')[1]));
+                
+            if (transaction == null)
+            {
+                return NotFound(new { error = "Transaction not found" });
+            }
+            
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("x-client-id", appId);
+            client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+            client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            
+            var response = await client.GetAsync($"{baseUrl}/orders/{transaction.PaymentIntentId}");
+            var responseContent = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest(new { 
+                    status = "FAILED",
+                    message = "Failed to get payment status",
+                    transactionId = transaction.PaymentIntentId
+                });
+            }
+            
+            var orderData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+            var orderStatus = orderData.GetProperty("order_status").GetString();
+            
+            var status = orderStatus?.ToUpper() switch
+            {
+                "PAID" => "SUCCESS",
+                "ACTIVE" => "PENDING",
+                _ => "FAILED"
+            };
+            
+            transaction.Status = orderStatus?.ToLower() ?? "pending";
+            transaction.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            
+            return Ok(new {
+                status = status,
+                message = status == "SUCCESS" ? "Payment completed successfully" : 
+                         status == "PENDING" ? "Payment is being processed" : "Payment failed",
+                transactionId = transaction.PaymentIntentId
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing UPI payment");
+            return BadRequest(new { 
+                status = "FAILED",
+                message = ex.Message,
+                transactionId = ""
+            });
         }
     }
     
@@ -311,7 +378,7 @@ public class PaymentController : ControllerBase
     
     // Stripe Endpoints
     [HttpPost("stripe/create-payment-intent")]
-    public async Task<IActionResult> CreatePaymentIntent([FromBody] CreatePaymentIntentRequest request)
+    public async Task<IActionResult> CreateStripePaymentIntent([FromBody] CreatePaymentIntentRequest request)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
         
@@ -518,6 +585,11 @@ public class CreatePaymentIntentRequest
     public string ProviderId { get; set; }
     public decimal Quote { get; set; }
     public decimal PlatformFee { get; set; }
+}
+
+public class ProcessUpiRequest
+{
+    public string SessionId { get; set; } = string.Empty;
 }
 
 public class ConfirmPaymentRequest
