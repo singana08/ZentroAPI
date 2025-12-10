@@ -244,8 +244,10 @@ public class PaymentController : ControllerBase
             var baseUrl = "https://sandbox.cashfree.com/pg";
             
             // Find transaction by session ID (stored in PaymentIntentId for now)
+            var sessionParts = request.SessionId.Split('_');
+            var searchTerm = sessionParts.Length > 1 ? sessionParts[1] : request.SessionId;
             var transaction = await _context.Transactions
-                .FirstOrDefaultAsync(t => t.PaymentIntentId.Contains(request.SessionId.Split('_')[1]));
+                .FirstOrDefaultAsync(t => t.PaymentIntentId.Contains(searchTerm));
                 
             if (transaction == null)
             {
