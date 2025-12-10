@@ -6,6 +6,9 @@ using ZentroAPI.Data;
 using ZentroAPI.Models;
 using Stripe;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace ZentroAPI.Controllers;
 
@@ -29,15 +32,19 @@ public class PaymentController : ControllerBase
         StripeConfiguration.ApiKey = stripeSecretKey;
         
         _logger.LogInformation($"Stripe initialized with key from Key Vault: {!string.IsNullOrEmpty(stripeSecretKey)}");
-        
-        _logger.LogInformation("Payment controller initialized with Stripe integration");
+        _logger.LogInformation("Payment controller initialized with Stripe and Cashfree integration");
     }
 
     [HttpGet("config")]
     public IActionResult GetPaymentConfig()
     {
-        var publishableKey = _configuration["StripePublishableKey"];
-        return Ok(new { publishableKey });
+        var stripePublishableKey = _configuration["StripePublishableKey"];
+        var cashfreeAppId = _configuration["CashFreeAPPID"];
+        
+        return Ok(new { 
+            stripe = new { publishableKey = stripePublishableKey },
+            cashfree = new { appId = cashfreeAppId, environment = "sandbox" }
+        });
     }
 
     [HttpGet("status/{paymentIntentId}")]
@@ -140,7 +147,170 @@ public class PaymentController : ControllerBase
         }
     }
 
-    [HttpPost("create-payment-intent")]
+    // Cashfree Endpoints
+    [HttpPost("cashfree/create-order")]
+    public async Task<IActionResult> CreateCashfreeOrder([FromBody] CreatePaymentIntentRequest request)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+        
+        try
+        {
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
+            var baseUrl = "https://sandbox.cashfree.com/pg";
+            
+            var orderId = $"order_{Guid.NewGuid().ToString("N")[..10]}";
+            
+            var orderData = new
+            {
+                order_id = orderId,
+                order_amount = (request.Amount / 100.0).ToString("F2"),
+                order_currency = "INR",
+                customer_details = new
+                {
+                    customer_id = userId ?? "unknown",
+                    customer_phone = "9999999999",
+                    customer_email = "user@example.com"
+                },
+                order_meta = new
+                {
+                    return_url = $"{Request.Scheme}://{Request.Host}/api/payment/cashfree/callback",
+                    notify_url = $"{Request.Scheme}://{Request.Host}/api/payment/cashfree/webhook"
+                }
+            };
+            
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("x-client-id", appId);
+            client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+            client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            
+            var json = JsonSerializer.Serialize(orderData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var response = await client.PostAsync($"{baseUrl}/orders", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError($"Cashfree order creation failed: {responseContent}");
+                return BadRequest(new { error = "Failed to create Cashfree order" });
+            }
+            
+            var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+            var paymentSessionId = orderResponse.GetProperty("payment_session_id").GetString();
+            
+            // Log transaction
+            var transaction = new Transaction
+            {
+                PaymentIntentId = orderId,
+                UserId = userId ?? "unknown",
+                JobId = request.JobId,
+                ProviderId = request.ProviderId,
+                Amount = request.Amount,
+                Currency = "inr",
+                Status = "pending",
+                Quote = request.Quote,
+                PlatformFee = request.PlatformFee,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            _context.Transactions.Add(transaction);
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation($"Cashfree order created: {orderId} for user {userId}");
+            
+            return Ok(new {
+                orderId = orderId,
+                paymentSessionId = paymentSessionId,
+                amount = request.Amount,
+                currency = "INR",
+                provider = "cashfree"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating Cashfree order");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+    
+    [HttpGet("cashfree/callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CashfreeCallback([FromQuery] string order_id, [FromQuery] string order_token)
+    {
+        try
+        {
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == order_id);
+                
+            if (transaction != null)
+            {
+                // Verify payment status with Cashfree
+                var appId = _configuration["CashFreeAPPID"];
+                var secretKey = _configuration["cashfreesecretkey"];
+                var baseUrl = "https://sandbox.cashfree.com/pg";
+                
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("x-client-id", appId);
+                client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+                client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+                
+                var response = await client.GetAsync($"{baseUrl}/orders/{order_id}");
+                var responseContent = await response.Content.ReadAsStringAsync();
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var orderData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var orderStatus = orderData.GetProperty("order_status").GetString();
+                    
+                    transaction.Status = orderStatus?.ToLower() ?? "pending";
+                    transaction.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                }
+            }
+            
+            var deepLink = $"zentroapp://payment/callback?order_id={order_id}&status={transaction?.Status ?? "unknown"}";
+            return Redirect(deepLink);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in Cashfree callback");
+            return Redirect($"zentroapp://payment/callback?error={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+    
+    [HttpPost("cashfree/webhook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CashfreeWebhook([FromBody] JsonElement webhookData)
+    {
+        try
+        {
+            var orderId = webhookData.GetProperty("data").GetProperty("order").GetProperty("order_id").GetString();
+            var orderStatus = webhookData.GetProperty("data").GetProperty("order").GetProperty("order_status").GetString();
+            
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == orderId);
+                
+            if (transaction != null)
+            {
+                transaction.Status = orderStatus?.ToLower() ?? "pending";
+                transaction.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation($"Cashfree webhook processed: {orderId}, Status: {orderStatus}");
+            }
+            
+            return Ok(new { status = "success" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing Cashfree webhook");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+    
+    // Stripe Endpoints
+    [HttpPost("stripe/create-payment-intent")]
     public async Task<IActionResult> CreatePaymentIntent([FromBody] CreatePaymentIntentRequest request)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
