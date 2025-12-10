@@ -47,6 +47,20 @@ public class PaymentController : ControllerBase
             environment = "sandbox"
         });
     }
+    
+    [HttpGet("test-cashfree")]
+    public IActionResult TestCashfreeConfig()
+    {
+        var appId = _configuration["CashFreeAPPID"];
+        var secretKey = _configuration["cashfreesecretkey"];
+        
+        return Ok(new {
+            hasAppId = !string.IsNullOrEmpty(appId),
+            hasSecretKey = !string.IsNullOrEmpty(secretKey),
+            appIdLength = appId?.Length ?? 0,
+            secretKeyLength = secretKey?.Length ?? 0
+        });
+    }
 
     [HttpGet("status/{paymentIntentId}")]
     public async Task<IActionResult> GetPaymentStatus(string paymentIntentId)
@@ -156,10 +170,18 @@ public class PaymentController : ControllerBase
         
         try
         {
+            _logger.LogInformation($"Creating Cashfree payment for user {userId}, amount {request.Amount}");
+            
             var appId = _configuration["CashFreeAPPID"];
             var secretKey = _configuration["cashfreesecretkey"];
-            var baseUrl = "https://sandbox.cashfree.com/pg";
             
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(secretKey))
+            {
+                _logger.LogError("Cashfree credentials not found in configuration");
+                return BadRequest(new { error = "Cashfree configuration missing" });
+            }
+            
+            var baseUrl = "https://sandbox.cashfree.com/pg";
             var orderId = $"order_{Guid.NewGuid().ToString("N")[..10]}";
             
             var orderData = new
@@ -180,21 +202,29 @@ public class PaymentController : ControllerBase
                 }
             };
             
+            var json = JsonSerializer.Serialize(orderData);
+            _logger.LogInformation($"Cashfree request payload: {json}");
+            
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
             client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
             
-            var json = JsonSerializer.Serialize(orderData);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             var response = await client.PostAsync($"{baseUrl}/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
             
+            _logger.LogInformation($"Cashfree response status: {response.StatusCode}, content: {responseContent}");
+            
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError($"Cashfree order creation failed: {responseContent}");
-                return BadRequest(new { error = "Failed to create Cashfree order" });
+                _logger.LogError($"Cashfree order creation failed with status {response.StatusCode}: {responseContent}");
+                return BadRequest(new { 
+                    error = "Failed to create Cashfree order",
+                    details = responseContent,
+                    statusCode = (int)response.StatusCode
+                });
             }
             
             var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
@@ -219,7 +249,7 @@ public class PaymentController : ControllerBase
             _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
             
-            _logger.LogInformation($"Cashfree order created: {orderId} for user {userId}");
+            _logger.LogInformation($"Cashfree order created successfully: {orderId} for user {userId}");
             
             return Ok(new {
                 sessionId = paymentSessionId,
@@ -229,8 +259,12 @@ public class PaymentController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating Cashfree order");
-            return BadRequest(new { error = ex.Message });
+            _logger.LogError(ex, "Exception in CreateCashfreePayment: {Message}", ex.Message);
+            return BadRequest(new { 
+                error = ex.Message,
+                type = ex.GetType().Name,
+                stackTrace = ex.StackTrace
+            });
         }
     }
     
