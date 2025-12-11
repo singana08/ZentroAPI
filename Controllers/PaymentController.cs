@@ -88,10 +88,10 @@ public class PaymentController : ControllerBase
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
+            client.DefaultRequestHeaders.Add("x-api-version", "2021-05-21");
             
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync("https://sandbox.cashfree.com/pg/orders", content);
+            var response = await client.PostAsync("https://test.cashfree.com/pg/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
             
             return Ok(new {
@@ -230,7 +230,7 @@ public class PaymentController : ControllerBase
                 return BadRequest(new { error = "Cashfree configuration missing" });
             }
             
-            var baseUrl = "https://sandbox.cashfree.com/pg";
+            var baseUrl = "https://test.cashfree.com/pg";
             var orderId = $"order_{Guid.NewGuid().ToString("N")[..10]}";
             
             var orderData = new
@@ -257,13 +257,13 @@ public class PaymentController : ControllerBase
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
+            client.DefaultRequestHeaders.Add("x-api-version", "2021-05-21");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             _logger.LogInformation($"Making request to: {baseUrl}/orders");
-            _logger.LogInformation($"Headers: x-client-id={appId?.Substring(0, 4)}..., x-api-version=2022-09-01");
+            _logger.LogInformation($"Headers: x-client-id={appId?.Substring(0, 4)}..., x-api-version=2021-05-21");
             
             var response = await client.PostAsync($"{baseUrl}/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -359,7 +359,7 @@ public class PaymentController : ControllerBase
         {
             var appId = _configuration["CashFreeAPPID"];
             var secretKey = _configuration["cashfreesecretkey"];
-            var baseUrl = "https://sandbox.cashfree.com/pg";
+            var baseUrl = "https://test.cashfree.com/pg";
             
             // Find transaction by session ID (stored in PaymentIntentId for now)
             var sessionParts = request.SessionId.Split('_');
@@ -375,7 +375,7 @@ public class PaymentController : ControllerBase
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
+            client.DefaultRequestHeaders.Add("x-api-version", "2021-05-21");
             
             var response = await client.GetAsync($"{baseUrl}/orders/{transaction.PaymentIntentId}");
             var responseContent = await response.Content.ReadAsStringAsync();
