@@ -25,6 +25,22 @@ public class CashfreePaymentController : ControllerBase
         _logger = logger;
         _context = context;
         _httpClient = httpClient;
+        
+        _logger.LogInformation("Cashfree Payment controller initialized");
+    }
+
+    [HttpGet("test")]
+    public IActionResult Test()
+    {
+        var appId = _configuration["CashfreeAppId"];
+        var secretKey = _configuration["CashfreeSecretKey"];
+        
+        return Ok(new {
+            hasAppId = !string.IsNullOrEmpty(appId),
+            hasSecretKey = !string.IsNullOrEmpty(secretKey),
+            appIdLength = appId?.Length ?? 0,
+            message = "Cashfree controller is working"
+        });
     }
 
     [HttpPost("create-order")]
@@ -34,11 +50,18 @@ public class CashfreePaymentController : ControllerBase
         
         try
         {
+            _logger.LogInformation($"Creating Cashfree order for user {userId}, amount {request.Amount}");
+            
             var orderId = $"order_{Guid.NewGuid().ToString("N")[..12]}";
-            var appId = _configuration["CashFreeAPPID"];
-            var secretKey = _configuration["cashfreesecretkey"];
-            var environment = _configuration["CashfreeEnvironment"] ?? "sandbox";
-            var baseUrl = environment == "production" ? "https://api.cashfree.com" : "https://sandbox.cashfree.com";
+            var appId = _configuration["CashfreeAppId"];
+            var secretKey = _configuration["CashfreeSecretKey"];
+            var baseUrl = "https://sandbox.cashfree.com";
+            
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(secretKey))
+            {
+                _logger.LogError("Cashfree credentials not found");
+                return BadRequest(new { error = "Cashfree configuration missing" });
+            }
             
             var orderData = new
             {
@@ -48,27 +71,30 @@ public class CashfreePaymentController : ControllerBase
                 customer_details = new
                 {
                     customer_id = userId ?? "guest",
-                    customer_email = request.CustomerEmail,
                     customer_phone = request.CustomerPhone
                 },
                 order_meta = new
                 {
                     return_url = request.ReturnUrl,
                     notify_url = request.NotifyUrl
-                },
-                order_note = $"Payment for job {request.JobId}"
+                }
             };
             
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("x-client-id", appId);
             _httpClient.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2025-01-01");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
             
             var json = JsonSerializer.Serialize(orderData);
+            _logger.LogInformation($"Cashfree request: {json}");
+            
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             var response = await _httpClient.PostAsync($"{baseUrl}/pg/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
+            
+            _logger.LogInformation($"Cashfree response status: {response.StatusCode}, content: {responseContent}");
             
             if (response.IsSuccessStatusCode)
             {
@@ -114,15 +140,14 @@ public class CashfreePaymentController : ControllerBase
     {
         try
         {
-            var appId = _configuration["CashFreeAPPID"];
-            var secretKey = _configuration["cashfreesecretkey"];
-            var environment = _configuration["CashfreeEnvironment"] ?? "sandbox";
-            var baseUrl = environment == "production" ? "https://api.cashfree.com" : "https://sandbox.cashfree.com";
+            var appId = _configuration["CashfreeAppId"];
+            var secretKey = _configuration["CashfreeSecretKey"];
+            var baseUrl = "https://sandbox.cashfree.com";
             
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("x-client-id", appId);
             _httpClient.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2025-01-01");
             
             var response = await _httpClient.GetAsync($"{baseUrl}/pg/orders/{orderId}/payments");
             var content = await response.Content.ReadAsStringAsync();
@@ -172,10 +197,9 @@ public class CashfreePaymentController : ControllerBase
 public class CreateOrderRequest
 {
     public decimal Amount { get; set; }
-    public string JobId { get; set; }
-    public string ProviderId { get; set; }
-    public string CustomerEmail { get; set; }
-    public string CustomerPhone { get; set; }
-    public string ReturnUrl { get; set; }
-    public string NotifyUrl { get; set; }
+    public required string JobId { get; set; }
+    public required string ProviderId { get; set; }
+    public string CustomerPhone { get; set; } = "9999999999";
+    public string ReturnUrl { get; set; } = "https://yourapp.com/return";
+    public string NotifyUrl { get; set; } = "https://yourapp.com/webhook";
 }
