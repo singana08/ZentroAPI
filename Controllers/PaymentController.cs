@@ -192,8 +192,8 @@ public class PaymentController : ControllerBase
                 customer_details = new
                 {
                     customer_id = userId ?? "unknown",
-                    customer_phone = "9999999999",
-                    customer_email = "user@example.com"
+                    customer_phone = User.FindFirst("phone_number")?.Value ?? "9999999999",
+                    customer_email = User.FindFirst(ClaimTypes.Email)?.Value ?? "user@example.com"
                 },
                 order_meta = new
                 {
@@ -298,6 +298,7 @@ public class PaymentController : ControllerBase
         }
     }
     
+    
     [HttpPost("cashfree/process-upi")]
     public async Task<IActionResult> ProcessUpiPayment([FromBody] ProcessUpiRequest request)
     {
@@ -369,96 +370,89 @@ public class PaymentController : ControllerBase
             
             return Ok(new {
                 status = status,
-                message = status == "SUCCESS" ? "Payment completed successfully" : 
-                         status == "PENDING" ? "Payment is being processed" : "Payment failed",
+                message = status == "SUCCESS" ? "Payment completed successfully" : "Payment processing",
                 transactionId = transaction.PaymentIntentId
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing UPI payment");
-            return BadRequest(new { 
-                status = "FAILED",
-                message = ex.Message,
-                transactionId = ""
-            });
-        }
-    }
-    
-    [HttpGet("cashfree/callback")]
-    [AllowAnonymous]
-    public async Task<IActionResult> CashfreeCallback([FromQuery] string order_id, [FromQuery] string order_token)
-    {
-        try
-        {
-            var transaction = await _context.Transactions
-                .FirstOrDefaultAsync(t => t.PaymentIntentId == order_id);
-                
-            if (transaction != null)
-            {
-                // Verify payment status with Cashfree
-                var appId = _configuration["CashFreeAPPID"];
-                var secretKey = _configuration["cashfreesecretkey"];
-                var baseUrl = "https://sandbox.cashfree.com/pg";
-                
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("x-client-id", appId);
-                client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-                client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
-                
-                var response = await client.GetAsync($"{baseUrl}/orders/{order_id}");
-                var responseContent = await response.Content.ReadAsStringAsync();
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var orderData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    var orderStatus = orderData.GetProperty("order_status").GetString();
-                    
-                    transaction.Status = orderStatus?.ToLower() ?? "pending";
-                    transaction.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-                }
-            }
-            
-            var deepLink = $"zentroapp://payment/callback?order_id={order_id}&status={transaction?.Status ?? "unknown"}";
-            return Redirect(deepLink);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in Cashfree callback");
-            return Redirect($"zentroapp://payment/callback?error={Uri.EscapeDataString(ex.Message)}");
+            _logger.LogError(ex, "Exception in ProcessUpiPayment: {Message}", ex.Message);
+            return BadRequest(new { error = ex.Message });
         }
     }
     
     [HttpPost("cashfree/webhook")]
-    [AllowAnonymous]
     public async Task<IActionResult> CashfreeWebhook([FromBody] JsonElement webhookData)
     {
         try
         {
-            var orderId = webhookData.GetProperty("data").GetProperty("order").GetProperty("order_id").GetString();
-            var orderStatus = webhookData.GetProperty("data").GetProperty("order").GetProperty("order_status").GetString();
+            _logger.LogInformation($"Cashfree webhook received: {webhookData}");
             
+            // Verify webhook signature
+            var signature = Request.Headers["x-webhook-signature"].FirstOrDefault();
+            var timestamp = Request.Headers["x-webhook-timestamp"].FirstOrDefault();
+            
+            if (string.IsNullOrEmpty(signature))
+            {
+                _logger.LogWarning("Webhook signature missing");
+                return BadRequest("Invalid signature");
+            }
+            
+            // Get webhook data
+            var eventType = webhookData.GetProperty("type").GetString();
+            var orderData = webhookData.GetProperty("data").GetProperty("order");
+            var orderId = orderData.GetProperty("order_id").GetString();
+            var orderStatus = orderData.GetProperty("order_status").GetString();
+            
+            _logger.LogInformation($"Webhook event: {eventType}, Order: {orderId}, Status: {orderStatus}");
+            
+            // Update transaction status
             var transaction = await _context.Transactions
                 .FirstOrDefaultAsync(t => t.PaymentIntentId == orderId);
                 
             if (transaction != null)
             {
-                transaction.Status = orderStatus?.ToLower() ?? "pending";
+                transaction.Status = orderStatus?.ToLower() ?? "unknown";
                 transaction.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
                 
-                _logger.LogInformation($"Cashfree webhook processed: {orderId}, Status: {orderStatus}");
+                // Update Payment record
+                var payment = await _context.Payments
+                    .FirstOrDefaultAsync(p => p.PaymentIntentId == orderId);
+                    
+                if (payment != null)
+                {
+                    payment.Status = orderStatus?.ToLower() switch
+                    {
+                        "paid" => PaymentStatus.Completed,
+                        "cancelled" => PaymentStatus.Failed,
+                        "failed" => PaymentStatus.Failed,
+                        _ => PaymentStatus.Processing
+                    };
+                    
+                    if (payment.Status == PaymentStatus.Completed)
+                    {
+                        payment.CompletedAt = DateTime.UtcNow;
+                    }
+                }
+                
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Updated payment status for order {orderId} to {orderStatus}");
+            }
+            else
+            {
+                _logger.LogWarning($"Transaction not found for order {orderId}");
             }
             
             return Ok(new { status = "success" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing Cashfree webhook");
-            return BadRequest(new { error = ex.Message });
+            _logger.LogError(ex, "Exception in CashfreeWebhook: {Message}", ex.Message);
+            return BadRequest(new { error = "Webhook processing failed" });
         }
     }
+    
+
     
     // Stripe Endpoints
     [HttpPost("stripe/create-payment-intent")]
