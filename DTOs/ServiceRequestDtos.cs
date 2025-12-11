@@ -371,6 +371,7 @@ public class ServiceRequestDetailsDto
     public List<QuoteWithMessagesDto> Quotes { get; set; } = [];
     public List<MessageDto> Messages { get; set; } = [];
     public ReviewDto? Review { get; set; }
+    public PaymentInfoDto? Payment { get; set; }
 }
 
 /// <summary>
@@ -407,5 +408,18 @@ public class ReviewDto
 {
     public int Rating { get; set; }
     public string Comment { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Payment information DTO
+/// </summary>
+public class PaymentInfoDto
+{
+    public Guid Id { get; set; }
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string Method { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
 }
 

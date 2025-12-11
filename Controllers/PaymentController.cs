@@ -246,7 +246,21 @@ public class PaymentController : ControllerBase
                 return BadRequest(new { error = "Invalid Cashfree response - missing session ID" });
             }
             
-            // Log transaction
+            // Log both Payment and Transaction records
+            var payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                ServiceRequestId = Guid.Parse(request.JobId),
+                PayerId = Guid.Parse(userId ?? Guid.Empty.ToString()),
+                PayeeId = Guid.Parse(request.ProviderId),
+                Amount = request.Amount / 100m,
+                Status = PaymentStatus.Pending,
+                Method = PaymentMethod.UPI,
+                TransactionId = orderId,
+                PaymentIntentId = orderId,
+                CreatedAt = DateTime.UtcNow
+            };
+            
             var transaction = new Transaction
             {
                 PaymentIntentId = orderId,
@@ -261,6 +275,7 @@ public class PaymentController : ControllerBase
                 CreatedAt = DateTime.UtcNow
             };
             
+            _context.Payments.Add(payment);
             _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
             
@@ -332,6 +347,24 @@ public class PaymentController : ControllerBase
             
             transaction.Status = orderStatus?.ToLower() ?? "pending";
             transaction.UpdatedAt = DateTime.UtcNow;
+            
+            // Also update Payment table
+            var payment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.PaymentIntentId == transaction.PaymentIntentId);
+            if (payment != null)
+            {
+                payment.Status = orderStatus?.ToLower() switch
+                {
+                    "paid" => PaymentStatus.Completed,
+                    "active" => PaymentStatus.Processing,
+                    _ => PaymentStatus.Failed
+                };
+                if (payment.Status == PaymentStatus.Completed)
+                {
+                    payment.CompletedAt = DateTime.UtcNow;
+                }
+            }
+            
             await _context.SaveChangesAsync();
             
             return Ok(new {

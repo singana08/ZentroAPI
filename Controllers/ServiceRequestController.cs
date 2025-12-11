@@ -307,6 +307,21 @@ public class ServiceRequestController : ControllerBase
                 })
                 .FirstOrDefaultAsync();
 
+            // Get payment information
+            var payment = await _context.Payments
+                .AsNoTracking()
+                .Where(p => p.ServiceRequestId == id)
+                .Select(p => new PaymentInfoDto
+                {
+                    Id = p.Id,
+                    Amount = p.Amount,
+                    Status = p.Status.ToString(),
+                    Method = p.Method.ToString(),
+                    CreatedAt = p.CreatedAt,
+                    CompletedAt = p.CompletedAt
+                })
+                .FirstOrDefaultAsync();
+
             var response = new ServiceRequestDetailsDto
             {
                 Id = serviceRequest.Id,
@@ -319,7 +334,8 @@ public class ServiceRequestController : ControllerBase
                 CreatedAt = serviceRequest.CreatedAt,
                 Quotes = quotesWithMessages,
                 Messages = generalMessages,
-                Review = review
+                Review = review,
+                Payment = payment
             };
 
             return Ok(response);
