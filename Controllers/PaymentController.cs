@@ -208,9 +208,13 @@ public class PaymentController : ControllerBase
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
             
             var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            _logger.LogInformation($"Making request to: {baseUrl}/orders");
+            _logger.LogInformation($"Headers: x-client-id={appId?.Substring(0, 4)}..., x-api-version=2023-08-01");
             
             var response = await client.PostAsync($"{baseUrl}/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -322,7 +326,7 @@ public class PaymentController : ControllerBase
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-client-id", appId);
             client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            client.DefaultRequestHeaders.Add("x-api-version", "2023-08-01");
+            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
             
             var response = await client.GetAsync($"{baseUrl}/orders/{transaction.PaymentIntentId}");
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -381,7 +385,41 @@ public class PaymentController : ControllerBase
         }
     }
     
+    [HttpGet("cashfree/callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CashfreeCallback([FromQuery] string order_id, [FromQuery] string order_status)
+    {
+        _logger.LogInformation($"Cashfree callback: Order {order_id}, Status {order_status}");
+        
+        try
+        {
+            // Update transaction status
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.PaymentIntentId == order_id);
+                
+            if (transaction != null)
+            {
+                transaction.Status = order_status?.ToLower() ?? "unknown";
+                transaction.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            
+            // Redirect to your mobile app or frontend
+            var redirectUrl = order_status?.ToLower() == "paid" 
+                ? "zentroapp://payment/success" 
+                : "zentroapp://payment/failed";
+                
+            return Redirect($"{redirectUrl}?orderId={order_id}&status={order_status}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in Cashfree callback");
+            return Redirect($"zentroapp://payment/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+    
     [HttpPost("cashfree/webhook")]
+    [AllowAnonymous]
     public async Task<IActionResult> CashfreeWebhook([FromBody] JsonElement webhookData)
     {
         try
