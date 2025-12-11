@@ -32,8 +32,8 @@ public class CashfreePaymentController : ControllerBase
     [HttpGet("test")]
     public IActionResult Test()
     {
-        var appId = _configuration["CashfreeAppId"];
-        var secretKey = _configuration["CashfreeSecretKey"];
+        var appId = _configuration["CashFreeAPPID"];
+        var secretKey = _configuration["cashfreesecretkey"];
         
         return Ok(new {
             hasAppId = !string.IsNullOrEmpty(appId),
@@ -53,8 +53,8 @@ public class CashfreePaymentController : ControllerBase
             _logger.LogInformation($"Creating Cashfree order for user {userId}, amount {request.Amount}");
             
             var orderId = $"order_{Guid.NewGuid().ToString("N")[..12]}";
-            var appId = _configuration["CashfreeAppId"];
-            var secretKey = _configuration["CashfreeSecretKey"];
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
             var baseUrl = "https://sandbox.cashfree.com";
             
             if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(secretKey))
@@ -117,10 +117,24 @@ public class CashfreePaymentController : ControllerBase
                 
                 var orderResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
                 
+                // Try to get optional properties safely
+                string? paymentSessionId = null;
+                string? orderToken = null;
+                
+                if (orderResponse.TryGetProperty("payment_session_id", out var sessionProp))
+                {
+                    paymentSessionId = sessionProp.GetString();
+                }
+                
+                if (orderResponse.TryGetProperty("order_token", out var tokenProp))
+                {
+                    orderToken = tokenProp.GetString();
+                }
+                
                 return Ok(new {
                     order_id = orderId,
-                    payment_session_id = orderResponse.GetProperty("payment_session_id").GetString(),
-                    order_token = orderResponse.GetProperty("order_token").GetString(),
+                    payment_session_id = paymentSessionId,
+                    order_token = orderToken,
                     amount = request.Amount,
                     currency = "INR"
                 });
@@ -140,8 +154,8 @@ public class CashfreePaymentController : ControllerBase
     {
         try
         {
-            var appId = _configuration["CashfreeAppId"];
-            var secretKey = _configuration["CashfreeSecretKey"];
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
             var baseUrl = "https://sandbox.cashfree.com";
             
             _httpClient.DefaultRequestHeaders.Clear();
