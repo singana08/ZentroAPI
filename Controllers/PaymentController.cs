@@ -356,10 +356,17 @@ public class PaymentController : ControllerBase
             
             _logger.LogInformation($"Cashfree order created successfully: {orderId} for user {userId}");
             
+            // Return format for React Native Cashfree SDK
             return Ok(new {
+                success = true,
+                payment_session_id = paymentSessionId,
+                order_id = orderId,
+                // For React Native SDK integration
                 sessionId = paymentSessionId,
-                paymentUrl = !string.IsNullOrEmpty(paymentUrl) ? paymentUrl : $"https://test.cashfree.com/billpay/checkout/post/submit/{paymentSessionId}",
-                orderId = orderId
+                orderId = orderId,
+                environment = "TEST", // or "PRODUCTION" for live
+                // Optional: web payment URL for fallback
+                paymentUrl = paymentUrl
             });
         }
         catch (Exception ex)
