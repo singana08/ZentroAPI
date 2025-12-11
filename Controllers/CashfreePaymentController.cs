@@ -65,9 +65,9 @@ public class CashfreePaymentController : ControllerBase
             
             var orderData = new
             {
-                order_id = orderId,
                 order_amount = request.Amount,
                 order_currency = "INR",
+                order_id = orderId,
                 customer_details = new
                 {
                     customer_id = userId ?? "guest",
@@ -75,8 +75,7 @@ public class CashfreePaymentController : ControllerBase
                 },
                 order_meta = new
                 {
-                    return_url = request.ReturnUrl,
-                    notify_url = request.NotifyUrl
+                    return_url = $"https://www.cashfree.com/devstudio/preview/pg/mobile/hybrid?order_id={orderId}"
                 }
             };
             
@@ -213,7 +212,5 @@ public class CreateOrderRequest
     public decimal Amount { get; set; }
     public required string JobId { get; set; }
     public required string ProviderId { get; set; }
-    public string CustomerPhone { get; set; } = "9999999999";
-    public string ReturnUrl { get; set; } = "https://yourapp.com/return";
-    public string NotifyUrl { get; set; } = "https://yourapp.com/webhook";
+    public string CustomerPhone { get; set; } = "9876543210";
 }
