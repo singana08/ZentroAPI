@@ -255,7 +255,7 @@ public class PaymentController : ControllerBase
                 PayeeId = Guid.Parse(request.ProviderId),
                 Amount = request.Amount / 100m,
                 Status = PaymentStatus.Pending,
-                Method = PaymentMethod.UPI,
+                Method = ZentroAPI.Models.PaymentMethod.UPI,
                 TransactionId = orderId,
                 PaymentIntentId = orderId,
                 CreatedAt = DateTime.UtcNow
@@ -472,7 +472,7 @@ public class PaymentController : ControllerBase
             {
                 Amount = request.Amount,
                 Currency = "inr",
-                PaymentMethodTypes = new List<string> { "upi" },
+                PaymentMethodTypes = new List<string> { "card" },
                 Metadata = new Dictionary<string, string>
                 {
                     { "job_id", request.JobId },
@@ -486,7 +486,21 @@ public class PaymentController : ControllerBase
             var service = new PaymentIntentService();
             var paymentIntent = await service.CreateAsync(options);
             
-            // Log transaction
+            // Log both Payment and Transaction records
+            var payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                ServiceRequestId = Guid.Parse(request.JobId),
+                PayerId = Guid.Parse(userId ?? Guid.Empty.ToString()),
+                PayeeId = Guid.Parse(request.ProviderId),
+                Amount = request.Amount / 100m,
+                Status = PaymentStatus.Pending,
+                Method = ZentroAPI.Models.PaymentMethod.CreditCard,
+                TransactionId = paymentIntent.Id,
+                PaymentIntentId = paymentIntent.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            
             var transaction = new Transaction
             {
                 PaymentIntentId = paymentIntent.Id,
@@ -501,6 +515,7 @@ public class PaymentController : ControllerBase
                 CreatedAt = DateTime.UtcNow
             };
             
+            _context.Payments.Add(payment);
             _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
             
@@ -665,8 +680,8 @@ public class PaymentController : ControllerBase
 public class CreatePaymentIntentRequest
 {
     public long Amount { get; set; }
-    public string JobId { get; set; }
-    public string ProviderId { get; set; }
+    public required string JobId { get; set; }
+    public required string ProviderId { get; set; }
     public decimal Quote { get; set; }
     public decimal PlatformFee { get; set; }
 }

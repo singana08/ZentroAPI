@@ -33,6 +33,9 @@ public enum PaymentMethod
     Card,
     CreditCard,
     DebitCard,
+    UPI,
+    NetBanking,
+    Wallet,
     PayPal,
     BankTransfer
 }
