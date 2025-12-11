@@ -61,6 +61,55 @@ public class PaymentController : ControllerBase
             secretKeyLength = secretKey?.Length ?? 0
         });
     }
+    
+    [HttpPost("debug-cashfree")]
+    public async Task<IActionResult> DebugCashfree()
+    {
+        try
+        {
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
+            
+            var testOrder = new
+            {
+                order_id = "test_" + Guid.NewGuid().ToString("N")[..8],
+                order_amount = "100.00",
+                order_currency = "INR",
+                customer_details = new
+                {
+                    customer_id = "test_customer",
+                    customer_phone = "9999999999",
+                    customer_email = "test@example.com"
+                }
+            };
+            
+            var json = JsonSerializer.Serialize(testOrder);
+            
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("x-client-id", appId);
+            client.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+            client.DefaultRequestHeaders.Add("x-api-version", "2022-09-01");
+            
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync("https://sandbox.cashfree.com/pg/orders", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            
+            return Ok(new {
+                statusCode = (int)response.StatusCode,
+                success = response.IsSuccessStatusCode,
+                response = responseContent,
+                requestPayload = json,
+                headers = new {
+                    appId = appId?.Substring(0, Math.Min(4, appId.Length)) + "...",
+                    hasSecret = !string.IsNullOrEmpty(secretKey)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
+    }
 
     [HttpGet("status/{paymentIntentId}")]
     public async Task<IActionResult> GetPaymentStatus(string paymentIntentId)
@@ -214,7 +263,7 @@ public class PaymentController : ControllerBase
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             _logger.LogInformation($"Making request to: {baseUrl}/orders");
-            _logger.LogInformation($"Headers: x-client-id={appId?.Substring(0, 4)}..., x-api-version=2023-08-01");
+            _logger.LogInformation($"Headers: x-client-id={appId?.Substring(0, 4)}..., x-api-version=2022-09-01");
             
             var response = await client.PostAsync($"{baseUrl}/orders", content);
             var responseContent = await response.Content.ReadAsStringAsync();
