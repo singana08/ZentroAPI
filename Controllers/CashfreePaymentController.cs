@@ -41,8 +41,6 @@ public class CashfreePaymentController : ControllerBase
             
             // Get service request details
             var serviceRequest = await _context.ServiceRequests
-                .Include(sr => sr.Category)
-                .Include(sr => sr.SubCategory)
                 .FirstOrDefaultAsync(sr => sr.Id == Guid.Parse(req.RequestId));
             if (serviceRequest == null) return BadRequest(new { error = "Service request not found" });
             
