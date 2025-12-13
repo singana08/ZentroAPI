@@ -213,6 +213,43 @@ public class CashfreePaymentController : ControllerBase
         }
     }
 
+    [HttpPost("payment-session/{orderId}")]
+    public async Task<IActionResult> CreatePaymentSession(string orderId)
+    {
+        try
+        {
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
+            var baseUrl = "https://sandbox.cashfree.com";
+            
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("x-client-id", appId);
+            _httpClient.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2025-01-01");
+            
+            var response = await _httpClient.PostAsync($"{baseUrl}/pg/orders/{orderId}/payments", null);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var sessionData = JsonSerializer.Deserialize<JsonElement>(content);
+                
+                return Ok(new {
+                    paymentSessionId = sessionData.GetProperty("payment_session_id").GetString(),
+                    paymentMethods = sessionData.GetProperty("payment_methods"),
+                    upiLink = sessionData.TryGetProperty("upi", out var upi) ? upi.GetProperty("link").GetString() : null
+                });
+            }
+            
+            return BadRequest(new { error = content });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating payment session for {OrderId}", orderId);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("record-payment")]
     public async Task<IActionResult> RecordPayment([FromBody] RecordPaymentRequest req)
     {
