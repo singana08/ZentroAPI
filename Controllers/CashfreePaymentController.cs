@@ -130,15 +130,24 @@ public class CashfreePaymentController : ControllerBase
                     orderToken = tokenProp.GetString();
                 }
                 
-                return Ok(new {
-                    order_id = orderId,
-                    payment_session_id = paymentSessionId,
-                    order_token = orderToken,
+                //return Ok(new {
+                //    order_id = orderId,
+                //    payment_session_id = paymentSessionId,
+                //    order_token = orderToken,
+                //    amount = request.Amount,
+                //    currency = "INR"
+                //});
+
+                return Ok(new
+                {
+                    orderId = orderId,
+                    paymentSessionId = paymentSessionId,
                     amount = request.Amount,
                     currency = "INR"
                 });
+
             }
-            
+
             return BadRequest(new { error = responseContent });
         }
         catch (Exception ex)
@@ -207,10 +216,23 @@ public class CashfreePaymentController : ControllerBase
     }
 }
 
+
+//public class CreateOrderRequest
+//{
+//    public decimal Amount { get; set; }
+//    public required string JobId { get; set; }
+//    public required string ProviderId { get; set; }
+//    public string CustomerPhone { get; set; } = "9876543210";
+//}
+
 public class CreateOrderRequest
 {
     public decimal Amount { get; set; }
     public required string JobId { get; set; }
     public required string ProviderId { get; set; }
+    public decimal Quote { get; set; }
+    public decimal PlatformFee { get; set; }
     public string CustomerPhone { get; set; } = "9876543210";
+    public string ReturnUrl { get; set; } = "";
+    public string NotifyUrl { get; set; } = "";
 }
