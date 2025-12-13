@@ -32,21 +32,13 @@ public class CashfreePaymentController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
-            
-            // Get user details
-            var user = await _context.Users.FindAsync(Guid.Parse(userId));
-            if (user == null) return BadRequest(new { error = "User not found" });
+            var profileId = User.FindFirst("profile_id")?.Value;
+            if (string.IsNullOrEmpty(profileId)) return Unauthorized();
             
             // Get service request details
             var serviceRequest = await _context.ServiceRequests
                 .FirstOrDefaultAsync(sr => sr.Id == Guid.Parse(req.RequestId));
             if (serviceRequest == null) return BadRequest(new { error = "Service request not found" });
-            
-            // Get provider details
-            var provider = await _context.Users.FindAsync(Guid.Parse(req.ProviderId));
-            if (provider == null) return BadRequest(new { error = "Provider not found" });
             
             var orderId = $"order_{Guid.NewGuid().ToString("N")[..12]}";
             var appId = _configuration["CashFreeAPPID"];
@@ -63,9 +55,9 @@ public class CashfreePaymentController : ControllerBase
                 order_id = orderId,
                 customer_details = new
                 {
-                    customer_id = userId,
-                    customer_email = user.Email,
-                    customer_phone = user.PhoneNumber ?? "9999999999"
+                    customer_id = profileId,
+                    customer_email = "customer@example.com",
+                    customer_phone = "9999999999"
                 }
             };
             
@@ -74,8 +66,8 @@ public class CashfreePaymentController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 ServiceRequestId = serviceRequest.Id,
-                PayerId = user.Id,
-                PayeeId = provider.Id,
+                PayerId = Guid.Parse(profileId),
+                PayeeId = Guid.Parse(req.ProviderId),
                 Amount = req.Amount,
                 Status = PaymentStatus.Pending,
                 Method = PaymentMethod.UPI,
@@ -226,8 +218,8 @@ public class CashfreePaymentController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            var profileId = User.FindFirst("profile_id")?.Value;
+            if (string.IsNullOrEmpty(profileId)) return Unauthorized();
             
             var serviceRequest = await _context.ServiceRequests
                 .FirstOrDefaultAsync(sr => sr.Id == Guid.Parse(req.RequestId));
@@ -237,7 +229,7 @@ public class CashfreePaymentController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 ServiceRequestId = serviceRequest.Id,
-                PayerId = Guid.Parse(userId),
+                PayerId = Guid.Parse(profileId),
                 PayeeId = Guid.Parse(req.ProviderId),
                 Amount = req.Amount,
                 Status = req.PaymentStatus == "SUCCESS" ? PaymentStatus.Completed : PaymentStatus.Failed,
