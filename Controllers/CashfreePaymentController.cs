@@ -221,6 +221,45 @@ public class CashfreePaymentController : ControllerBase
         }
     }
 
+    [HttpPost("record-payment")]
+    public async Task<IActionResult> RecordPayment([FromBody] RecordPaymentRequest req)
+    {
+        try
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("user_id")?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            
+            var serviceRequest = await _context.ServiceRequests
+                .FirstOrDefaultAsync(sr => sr.Id == Guid.Parse(req.RequestId));
+            if (serviceRequest == null) return BadRequest(new { error = "Service request not found" });
+            
+            var payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                ServiceRequestId = serviceRequest.Id,
+                PayerId = Guid.Parse(userId),
+                PayeeId = Guid.Parse(req.ProviderId),
+                Amount = req.Amount,
+                Status = req.PaymentStatus == "SUCCESS" ? PaymentStatus.Completed : PaymentStatus.Failed,
+                Method = PaymentMethod.UPI,
+                TransactionId = req.TransactionId,
+                PaymentIntentId = req.TransactionId,
+                CreatedAt = req.PaymentDate,
+                CompletedAt = req.PaymentStatus == "SUCCESS" ? req.PaymentDate : null
+            };
+            
+            _context.Payments.Add(payment);
+            await _context.SaveChangesAsync();
+            
+            return Ok(new { message = "Payment recorded successfully", paymentId = payment.Id });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error recording payment");
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("cashfree/webhook")]
     [AllowAnonymous]
     public async Task<IActionResult> CashfreeWebhook([FromBody] JsonElement payload)
@@ -267,5 +306,18 @@ public class OrderRequest
     public required string RequestId { get; set; }
     public decimal Amount { get; set; }
     public required string ProviderId { get; set; }
+}
+
+public class RecordPaymentRequest
+{
+    public required string RequestId { get; set; }
+    public required string ProviderId { get; set; }
+    public decimal Amount { get; set; }
+    public required string PaymentMethod { get; set; }
+    public required string TransactionId { get; set; }
+    public required string PaymentStatus { get; set; }
+    public DateTime PaymentDate { get; set; }
+    public decimal PlatformFee { get; set; }
+    public decimal ProviderAmount { get; set; }
 }
 
