@@ -232,12 +232,12 @@ public class CashfreePaymentController : ControllerBase
                 PayerId = Guid.Parse(profileId),
                 PayeeId = Guid.Parse(req.ProviderId),
                 Amount = req.Amount,
-                Status = req.PaymentStatus == "SUCCESS" ? PaymentStatus.Completed : PaymentStatus.Failed,
+                Status = req.Status == "completed" ? PaymentStatus.Completed : PaymentStatus.Failed,
                 Method = PaymentMethod.UPI,
-                TransactionId = req.TransactionId,
-                PaymentIntentId = req.TransactionId,
-                CreatedAt = req.PaymentDate,
-                CompletedAt = req.PaymentStatus == "SUCCESS" ? req.PaymentDate : null
+                TransactionId = req.SessionId,
+                PaymentIntentId = req.SessionId,
+                CreatedAt = DateTime.UtcNow,
+                CompletedAt = req.Status == "completed" ? DateTime.UtcNow : null
             };
             
             _context.Payments.Add(payment);
@@ -303,13 +303,11 @@ public class OrderRequest
 public class RecordPaymentRequest
 {
     public required string RequestId { get; set; }
+    public required string QuoteId { get; set; }
     public required string ProviderId { get; set; }
     public decimal Amount { get; set; }
     public required string PaymentMethod { get; set; }
-    public required string TransactionId { get; set; }
-    public required string PaymentStatus { get; set; }
-    public DateTime PaymentDate { get; set; }
-    public decimal PlatformFee { get; set; }
-    public decimal ProviderAmount { get; set; }
+    public required string Status { get; set; }
+    public required string SessionId { get; set; }
 }
 
