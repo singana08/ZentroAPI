@@ -213,39 +213,33 @@ public class CashfreePaymentController : ControllerBase
         }
     }
 
-    [HttpPost("payment-session/{orderId}")]
-    public async Task<IActionResult> CreatePaymentSession(string orderId)
+    [HttpGet("payment-session/{orderId}")]
+    public async Task<IActionResult> GetPaymentSession(string orderId)
     {
         try
         {
-            var appId = _configuration["CashFreeAPPID"];
-            var secretKey = _configuration["cashfreesecretkey"];
-            var baseUrl = "https://sandbox.cashfree.com";
-            
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("x-client-id", appId);
-            _httpClient.DefaultRequestHeaders.Add("x-client-secret", secretKey);
-            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2025-01-01");
-            
-            var response = await _httpClient.PostAsync($"{baseUrl}/pg/orders/{orderId}/payments", null);
-            var content = await response.Content.ReadAsStringAsync();
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var sessionData = JsonSerializer.Deserialize<JsonElement>(content);
+            // Get payment from database
+            var payment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.TransactionId == orderId);
                 
-                return Ok(new {
-                    paymentSessionId = sessionData.GetProperty("payment_session_id").GetString(),
-                    paymentMethods = sessionData.GetProperty("payment_methods"),
-                    upiLink = sessionData.TryGetProperty("upi", out var upi) ? upi.GetProperty("link").GetString() : null
-                });
-            }
+            if (payment == null)
+                return NotFound(new { error = "Payment not found" });
             
-            return BadRequest(new { error = content });
+            // Generate UPI deep link
+            var upiLink = $"upi://pay?pa=merchant@upi&pn=YourApp&am={payment.Amount}&cu=INR&tn={orderId}";
+            var paymentLink = $"https://sandbox.cashfree.com/pg/orders/{orderId}/pay";
+            
+            return Ok(new {
+                orderId = orderId,
+                amount = payment.Amount,
+                upiLink = upiLink,
+                paymentLink = paymentLink,
+                status = payment.Status.ToString()
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating payment session for {OrderId}", orderId);
+            _logger.LogError(ex, "Error getting payment session for {OrderId}", orderId);
             return BadRequest(new { error = ex.Message });
         }
     }
