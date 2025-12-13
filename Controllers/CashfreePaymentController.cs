@@ -158,34 +158,107 @@ public class CashfreePaymentController : ControllerBase
         }
     }
 
-    [HttpPost("cashfree/webhook")]
-    public IActionResult CashfreeWebhook([FromBody] CashfreeWebhookPayload payload)
+    [HttpGet("verify/{orderId}")]
+    public async Task<IActionResult> VerifyPaymentStatus(string orderId)
     {
         try
         {
-            if (!VerifySignature(payload)) 
-                return Unauthorized();
+            var appId = _configuration["CashFreeAPPID"];
+            var secretKey = _configuration["cashfreesecretkey"];
+            var baseUrl = "https://sandbox.cashfree.com";
+            
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("x-client-id", appId);
+            _httpClient.DefaultRequestHeaders.Add("x-client-secret", secretKey);
+            _httpClient.DefaultRequestHeaders.Add("x-api-version", "2025-01-01");
+            
+            var response = await _httpClient.GetAsync($"{baseUrl}/pg/orders/{orderId}");
+            var content = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var orderData = JsonSerializer.Deserialize<JsonElement>(content);
+                var cashfreeStatus = orderData.GetProperty("order_status").GetString();
+                
+                // Update local database with Cashfree status
+                var payment = await _context.Payments
+                    .FirstOrDefaultAsync(p => p.TransactionId == orderId);
+                    
+                if (payment != null)
+                {
+                    var newStatus = cashfreeStatus switch
+                    {
+                        "PAID" => PaymentStatus.Completed,
+                        "ACTIVE" => PaymentStatus.Processing,
+                        "EXPIRED" => PaymentStatus.Failed,
+                        "CANCELLED" => PaymentStatus.Failed,
+                        _ => PaymentStatus.Pending
+                    };
+                    
+                    if (payment.Status != newStatus)
+                    {
+                        payment.Status = newStatus;
+                        if (newStatus == PaymentStatus.Completed)
+                            payment.CompletedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+                
+                return Ok(new {
+                    orderId = orderData.GetProperty("order_id").GetString(),
+                    status = orderData.GetProperty("order_status").GetString(),
+                    amount = orderData.GetProperty("order_amount").GetDecimal(),
+                    currency = orderData.GetProperty("order_currency").GetString()
+                });
+            }
+            
+            return BadRequest(new { error = content });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying payment status for {OrderId}", orderId);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
-            UpdateOrderStatus(payload.OrderId, payload.OrderStatus);
+    [HttpPost("cashfree/webhook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CashfreeWebhook([FromBody] JsonElement payload)
+    {
+        try
+        {
+            var eventType = payload.GetProperty("type").GetString();
+            var orderId = payload.GetProperty("order_id").GetString();
+            
+            var payment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.TransactionId == orderId);
+                
+            if (payment != null)
+            {
+                payment.Status = eventType switch
+                {
+                    "PAYMENT_SUCCESS_WEBHOOK" => PaymentStatus.Completed,
+                    "PAYMENT_FAILED_WEBHOOK" => PaymentStatus.Failed,
+                    "PAYMENT_USER_DROPPED_WEBHOOK" => PaymentStatus.Failed,
+                    _ => payment.Status
+                };
+                
+                if (payment.Status == PaymentStatus.Completed)
+                {
+                    payment.CompletedAt = DateTime.UtcNow;
+                }
+                
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Payment {OrderId} event {EventType} processed, status: {Status}", orderId, eventType, payment.Status);
+            }
+            
             return Ok();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing webhook for order {OrderId}", payload?.OrderId);
-            return BadRequest();
+            _logger.LogError(ex, "Webhook processing failed");
+            return Ok();
         }
-    }
-
-    private bool VerifySignature(CashfreeWebhookPayload payload)
-    {
-        // TODO: Implement signature verification
-        return true;
-    }
-
-    private void UpdateOrderStatus(string orderId, string status)
-    {
-        // TODO: Update database with payment status
-        _logger.LogInformation("Order {OrderId} status updated to {Status}", orderId, status);
     }
 }
 
@@ -196,11 +269,3 @@ public class OrderRequest
     public required string ProviderId { get; set; }
 }
 
-public class CashfreeWebhookPayload
-{
-    public required string OrderId { get; set; }
-    public required string OrderStatus { get; set; }
-    public decimal OrderAmount { get; set; }
-    public string? PaymentMethod { get; set; }
-    public string? TransactionId { get; set; }
-}
