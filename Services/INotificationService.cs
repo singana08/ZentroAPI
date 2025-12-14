@@ -11,4 +11,9 @@ public interface INotificationService
     Task<(bool Success, int UpdatedCount, string Message)> MarkAllNotificationsAsReadAsync(Guid profileId);
     Task<int> GetUnreadCountAsync(Guid profileId);
     Task CreateNotificationAsync(Guid profileId, string title, string body, string type, Guid? relatedEntityId = null, object? data = null);
+    
+    // New notification methods for service request scenarios
+    Task NotifyProvidersOfNewServiceRequestAsync(Guid serviceRequestId);
+    Task NotifyProviderOfRequestUpdateAsync(Guid serviceRequestId, string updateType);
+    Task NotifyOfQuoteAcceptanceAsync(Guid quoteId, Guid acceptingProfileId, bool isRequester);
 }

@@ -145,3 +145,11 @@ public class ExpoMessage
     [JsonPropertyName("badge")]
     public int? Badge { get; set; }
 }
+
+public class TestNotificationRequest
+{
+    public Guid ServiceRequestId { get; set; }
+    public Guid QuoteId { get; set; }
+    public Guid AcceptingProfileId { get; set; }
+    public bool IsRequester { get; set; }
+}

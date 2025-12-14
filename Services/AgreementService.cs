@@ -9,11 +9,13 @@ public class AgreementService : IAgreementService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AgreementService> _logger;
+    private readonly INotificationService _notificationService;
 
-    public AgreementService(ApplicationDbContext context, ILogger<AgreementService> logger)
+    public AgreementService(ApplicationDbContext context, ILogger<AgreementService> logger, INotificationService notificationService)
     {
         _context = context;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
 
@@ -76,6 +78,9 @@ public class AgreementService : IAgreementService
                         MessageText = "I have agreed to your proposal. Waiting for your agreement to finalize the deal."
                     };
                     _context.Messages.Add(message);
+                    
+                    // Notify provider that requester accepted the quote
+                    await _notificationService.NotifyOfQuoteAcceptanceAsync(request.QuoteId, profileId, true);
                 }
                 else
                 {
@@ -90,6 +95,9 @@ public class AgreementService : IAgreementService
                         MessageText = "I have accepted your agreement. Looking forward to working with you!"
                     };
                     _context.Messages.Add(message);
+                    
+                    // Notify requester that provider accepted the quote
+                    await _notificationService.NotifyOfQuoteAcceptanceAsync(request.QuoteId, profileId, false);
                 }
             }
             else

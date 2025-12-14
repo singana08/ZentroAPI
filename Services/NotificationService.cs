@@ -256,4 +256,197 @@ public class NotificationService : INotificationService
             _logger.LogError(ex, $"Error creating notification for profile {profileId}");
         }
     }
+
+    public async Task NotifyProvidersOfNewServiceRequestAsync(Guid serviceRequestId)
+    {
+        try
+        {
+            var serviceRequest = await _context.ServiceRequests
+                .Include(sr => sr.Requester)
+                .ThenInclude(r => r!.User)
+                .FirstOrDefaultAsync(sr => sr.Id == serviceRequestId);
+
+            if (serviceRequest == null) return;
+
+            var providers = await _context.Providers
+                .Where(p => p.IsActive && p.NotificationsEnabled)
+                .ToListAsync();
+
+            var notifications = new List<PushNotificationPayload>();
+
+            foreach (var provider in providers)
+            {
+                // Create in-app notification
+                await CreateNotificationAsync(
+                    provider.Id,
+                    "New Service Request",
+                    $"{serviceRequest.SubCategory} service needed in {serviceRequest.Location}",
+                    "new_service_request",
+                    serviceRequestId,
+                    new { serviceRequestId, category = serviceRequest.MainCategory, subCategory = serviceRequest.SubCategory }
+                );
+
+                // Add push notification if token exists
+                if (!string.IsNullOrEmpty(provider.PushToken))
+                {
+                    notifications.Add(new PushNotificationPayload
+                    {
+                        To = provider.PushToken,
+                        Title = "New Service Request",
+                        Body = $"{serviceRequest.SubCategory} service needed in {serviceRequest.Location}",
+                        Data = new
+                        {
+                            serviceRequestId = serviceRequestId.ToString(),
+                            category = serviceRequest.MainCategory,
+                            subCategory = serviceRequest.SubCategory,
+                            location = serviceRequest.Location,
+                            type = "new_service_request"
+                        }
+                    });
+                }
+            }
+
+            if (notifications.Any())
+            {
+                await SendBatchNotificationsAsync(notifications);
+            }
+
+            _logger.LogInformation($"Notified {providers.Count} providers of new service request {serviceRequestId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying providers of new service request {serviceRequestId}");
+        }
+    }
+
+    public async Task NotifyProviderOfRequestUpdateAsync(Guid serviceRequestId, string updateType)
+    {
+        try
+        {
+            var serviceRequest = await _context.ServiceRequests
+                .Include(sr => sr.AssignedProvider)
+                .FirstOrDefaultAsync(sr => sr.Id == serviceRequestId);
+
+            if (serviceRequest?.AssignedProvider == null || !serviceRequest.AssignedProvider.NotificationsEnabled) return;
+
+            var title = updateType.ToLower() switch
+            {
+                "edit" => "Service Request Updated",
+                "cancel" => "Service Request Cancelled",
+                _ => "Service Request Changed"
+            };
+
+            var body = updateType.ToLower() switch
+            {
+                "edit" => $"The {serviceRequest.SubCategory} request has been updated",
+                "cancel" => $"The {serviceRequest.SubCategory} request has been cancelled",
+                _ => $"The {serviceRequest.SubCategory} request has been modified"
+            };
+
+            // Create in-app notification
+            await CreateNotificationAsync(
+                serviceRequest.AssignedProvider.Id,
+                title,
+                body,
+                $"request_{updateType.ToLower()}",
+                serviceRequestId,
+                new { serviceRequestId, updateType, category = serviceRequest.MainCategory, subCategory = serviceRequest.SubCategory }
+            );
+
+            // Send push notification if token exists
+            if (!string.IsNullOrEmpty(serviceRequest.AssignedProvider.PushToken))
+            {
+                var pushNotification = new PushNotificationPayload
+                {
+                    To = serviceRequest.AssignedProvider.PushToken,
+                    Title = title,
+                    Body = body,
+                    Data = new
+                    {
+                        serviceRequestId = serviceRequestId.ToString(),
+                        updateType,
+                        category = serviceRequest.MainCategory,
+                        subCategory = serviceRequest.SubCategory,
+                        type = $"request_{updateType.ToLower()}"
+                    }
+                };
+
+                await SendBatchNotificationsAsync(new List<PushNotificationPayload> { pushNotification });
+            }
+
+            _logger.LogInformation($"Notified provider {serviceRequest.AssignedProvider.Id} of request {updateType} for {serviceRequestId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying provider of request {updateType} for {serviceRequestId}");
+        }
+    }
+
+    public async Task NotifyOfQuoteAcceptanceAsync(Guid quoteId, Guid acceptingProfileId, bool isRequester)
+    {
+        try
+        {
+            var quote = await _context.Quotes
+                .Include(q => q.ServiceRequest)
+                .Include(q => q.Provider)
+                .ThenInclude(p => p!.User)
+                .FirstOrDefaultAsync(q => q.Id == quoteId);
+
+            if (quote?.ServiceRequest == null) return;
+
+            var targetProfileId = isRequester ? quote.ProviderId : quote.ServiceRequest.RequesterId;
+            var acceptingUserName = isRequester ? "Customer" : quote.Provider?.User?.FullName ?? "Provider";
+
+            var title = isRequester ? "Quote Accepted!" : "Quote Response";
+            var body = isRequester 
+                ? $"Your quote of ₹{quote.Price:F2} for {quote.ServiceRequest.SubCategory} has been accepted!"
+                : $"{acceptingUserName} accepted the quote for {quote.ServiceRequest.SubCategory}";
+
+            // Create in-app notification
+            await CreateNotificationAsync(
+                targetProfileId,
+                title,
+                body,
+                "quote_accepted",
+                quote.ServiceRequest.Id,
+                new { quoteId, serviceRequestId = quote.ServiceRequest.Id, price = quote.Price, acceptedBy = acceptingProfileId }
+            );
+
+            // Send push notification
+            var targetProvider = isRequester ? null : await _context.Providers.FindAsync(targetProfileId);
+            var targetRequester = isRequester ? await _context.Requesters.FindAsync(targetProfileId) : null;
+            
+            // Check if notifications are enabled for the target user
+            var notificationsEnabled = targetProvider?.NotificationsEnabled ?? targetRequester?.NotificationsEnabled ?? false;
+            if (!notificationsEnabled) return;
+            
+            var pushToken = targetProvider?.PushToken ?? targetRequester?.PushToken;
+            
+            if (!string.IsNullOrEmpty(pushToken))
+            {
+                var pushNotification = new PushNotificationPayload
+                {
+                    To = pushToken,
+                    Title = title,
+                    Body = body,
+                    Data = new
+                    {
+                        quoteId = quoteId.ToString(),
+                        serviceRequestId = quote.ServiceRequest.Id.ToString(),
+                        price = quote.Price,
+                        acceptedBy = acceptingProfileId.ToString(),
+                        type = "quote_accepted"
+                    }
+                };
+
+                await SendBatchNotificationsAsync(new List<PushNotificationPayload> { pushNotification });
+            }
+
+            _logger.LogInformation($"Notified {targetProfileId} of quote acceptance for quote {quoteId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error notifying of quote acceptance for quote {quoteId}");
+        }
+    }
 }

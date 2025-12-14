@@ -292,4 +292,43 @@ public class NotificationController : ControllerBase
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
+
+    /// <summary>
+    /// Test notification scenarios (Development only)
+    /// </summary>
+    [HttpPost("test/{scenario}")]
+    [Authorize]
+    [ProducesResponseType(typeof(SuccessResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> TestNotificationScenario(string scenario, [FromBody] TestNotificationRequest request)
+    {
+        try
+        {
+            switch (scenario.ToLower())
+            {
+                case "new-request":
+                    await _notificationService.NotifyProvidersOfNewServiceRequestAsync(request.ServiceRequestId);
+                    return Ok(new SuccessResponse { Message = "New request notifications sent" });
+                    
+                case "request-update":
+                    await _notificationService.NotifyProviderOfRequestUpdateAsync(request.ServiceRequestId, "edit");
+                    return Ok(new SuccessResponse { Message = "Request update notification sent" });
+                    
+                case "request-cancel":
+                    await _notificationService.NotifyProviderOfRequestUpdateAsync(request.ServiceRequestId, "cancel");
+                    return Ok(new SuccessResponse { Message = "Request cancellation notification sent" });
+                    
+                case "quote-accept":
+                    await _notificationService.NotifyOfQuoteAcceptanceAsync(request.QuoteId, request.AcceptingProfileId, request.IsRequester);
+                    return Ok(new SuccessResponse { Message = "Quote acceptance notification sent" });
+                    
+                default:
+                    return BadRequest(new ErrorResponse { Message = "Invalid scenario. Use: new-request, request-update, request-cancel, quote-accept" });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing notification scenario: {Scenario}", scenario);
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
 }

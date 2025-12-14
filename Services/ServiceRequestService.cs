@@ -13,13 +13,16 @@ public class ServiceRequestService : IServiceRequestService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<ServiceRequestService> _logger;
+    private readonly INotificationService _notificationService;
 
     public ServiceRequestService(
         ApplicationDbContext dbContext,
-        ILogger<ServiceRequestService> logger)
+        ILogger<ServiceRequestService> logger,
+        INotificationService notificationService)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -85,6 +88,9 @@ public class ServiceRequestService : IServiceRequestService
 
             _dbContext.ServiceRequests.Add(serviceRequest);
             await _dbContext.SaveChangesAsync();
+
+            // Notify all providers of new service request
+            await _notificationService.NotifyProvidersOfNewServiceRequestAsync(serviceRequest.Id);
 
             _logger.LogInformation(
                 $"Service request created successfully. ID: {serviceRequest.Id}, Requester: {userId}, Type: {bookingType}");
@@ -167,6 +173,12 @@ public class ServiceRequestService : IServiceRequestService
 
             _dbContext.ServiceRequests.Update(serviceRequest);
             await _dbContext.SaveChangesAsync();
+
+            // Notify assigned provider of request update
+            if (serviceRequest.AssignedProviderId.HasValue)
+            {
+                await _notificationService.NotifyProviderOfRequestUpdateAsync(serviceRequest.Id, "edit");
+            }
 
             _logger.LogInformation(
                 $"Service request updated successfully. ID: {serviceRequest.Id}, Requester: {userId}");
@@ -323,6 +335,12 @@ public class ServiceRequestService : IServiceRequestService
 
             _dbContext.ServiceRequests.Update(serviceRequest);
             await _dbContext.SaveChangesAsync();
+
+            // Notify assigned provider of request cancellation
+            if (serviceRequest.AssignedProviderId.HasValue)
+            {
+                await _notificationService.NotifyProviderOfRequestUpdateAsync(serviceRequest.Id, "cancel");
+            }
 
             _logger.LogInformation($"Service request {requestId} cancelled by requester {userId}");
             return (true, "Service request cancelled successfully");
