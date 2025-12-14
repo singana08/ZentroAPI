@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace ZentroAPI.DTOs;
 
@@ -117,10 +118,21 @@ public class SuccessResponse
 
 public class ExpoMessage
 {
+    [JsonPropertyName("to")]
     public string To { get; set; } = string.Empty;
+    
+    [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
+    
+    [JsonPropertyName("body")]
     public string Body { get; set; } = string.Empty;
+    
+    [JsonPropertyName("data")]
     public Dictionary<string, object>? Data { get; set; }
+    
+    [JsonPropertyName("priority")]
     public string Priority { get; set; } = "normal";
+    
+    [JsonPropertyName("sound")]
     public string Sound { get; set; } = "default";
 }

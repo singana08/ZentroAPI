@@ -28,14 +28,14 @@ public class PushNotificationService : IPushNotificationService
             // Get user ID from profile ID
             var userIdQuery = await _context.Requesters
                 .Where(r => r.Id == profileId)
-                .Select(r => r.UserId)
+                .Select(r => r.Id)
                 .FirstOrDefaultAsync();
             
             if (userIdQuery == Guid.Empty)
             {
                 userIdQuery = await _context.Providers
                     .Where(p => p.Id == profileId)
-                    .Select(p => p.UserId)
+                    .Select(p => p.Id)
                     .FirstOrDefaultAsync();
             }
             
@@ -209,7 +209,7 @@ public class PushNotificationService : IPushNotificationService
             // Get user ID from profile ID
             var userIdQuery = await _context.Requesters
                 .Where(r => r.Id == profileId)
-                .Select(r => r.UserId)
+                .Select(r => r.Id)
                 .FirstOrDefaultAsync();
             
             if (userIdQuery == Guid.Empty)
@@ -328,15 +328,26 @@ public class PushNotificationService : IPushNotificationService
     {
         try
         {
-            var json = JsonSerializer.Serialize(messages);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            bool allSuccessful = true;
+            
+            foreach (var message in messages)
+            {
+                var json = JsonSerializer.Serialize(message);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(ExpoApiUrl, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.PostAsync(ExpoApiUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("Expo response: {Response}", responseContent);
+                _logger.LogInformation("Expo response for token {Token}: {Response}", message.To, responseContent);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    allSuccessful = false;
+                    _logger.LogWarning("Failed to send notification to token {Token}: {Response}", message.To, responseContent);
+                }
+            }
 
-            return response.IsSuccessStatusCode;
+            return allSuccessful;
         }
         catch (Exception ex)
         {
