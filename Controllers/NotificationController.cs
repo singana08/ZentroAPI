@@ -75,12 +75,12 @@ public class NotificationController : ControllerBase
             }
 
             // Fallback to old method for backward compatibility
-            var profileId = User.FindFirst("profile_id")?.Value;
+            var legacyProfileId = User.FindFirst("profile_id")?.Value;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
             
-            _logger.LogInformation("Fallback to legacy method: ProfileId={ProfileId}, Role={Role}", profileId, role);
+            _logger.LogInformation("Fallback to legacy method: ProfileId={ProfileId}, Role={Role}", legacyProfileId, role);
             
-            if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+            if (string.IsNullOrEmpty(legacyProfileId) || !Guid.TryParse(legacyProfileId, out var profileGuid))
             {
                 return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
             }
@@ -90,13 +90,13 @@ public class NotificationController : ControllerBase
                 return Unauthorized(new ErrorResponse { Message = "Role not found in token" });
             }
 
-            var (success, message) = await _notificationService.RegisterPushTokenAsync(profileGuid, request.PushToken, role);
-            _logger.LogInformation("Legacy service result: Success={Success}, Message={Message}", success, message);
+            var (legacySuccess, legacyMessage) = await _notificationService.RegisterPushTokenAsync(profileGuid, request.PushToken, role);
+            _logger.LogInformation("Legacy service result: Success={Success}, Message={Message}", legacySuccess, legacyMessage);
             
-            if (!success)
-                return BadRequest(new ErrorResponse { Message = message });
+            if (!legacySuccess)
+                return BadRequest(new ErrorResponse { Message = legacyMessage });
 
-            return Ok(new { Success = true, Message = message });
+            return Ok(new { Success = true, Message = legacyMessage });
         }
         catch (Exception ex)
         {
