@@ -12,11 +12,19 @@ namespace ZentroAPI.Controllers;
 public class NotificationController : ControllerBase
 {
     private readonly INotificationService _notificationService;
+    private readonly IPushNotificationService _pushNotificationService;
+    private readonly ITokenService _tokenService;
     private readonly ILogger<NotificationController> _logger;
 
-    public NotificationController(INotificationService notificationService, ILogger<NotificationController> logger)
+    public NotificationController(
+        INotificationService notificationService, 
+        IPushNotificationService pushNotificationService,
+        ITokenService tokenService,
+        ILogger<NotificationController> logger)
     {
         _notificationService = notificationService;
+        _pushNotificationService = pushNotificationService;
+        _tokenService = tokenService;
         _logger = logger;
     }
 
@@ -29,25 +37,55 @@ public class NotificationController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RegisterPushToken([FromBody] RegisterPushTokenRequest request)
     {
-        var profileId = User.FindFirst("profile_id")?.Value;
-        var role = User.FindFirst(ClaimTypes.Role)?.Value;
-        
-        if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+        try
         {
-            return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
+            // Extract user ID from token for new push notification system
+            var (_, userId, _) = _tokenService.ExtractTokenInfo(User);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(new ErrorResponse { Message = "User authentication failed" });
+            }
+
+            // Register with new push notification service (if tables exist)
+            try
+            {
+                var (newSuccess, newMessage) = await _pushNotificationService.RegisterPushTokenAsync(userId.Value, request);
+                if (newSuccess)
+                {
+                    return Ok(new { Success = true, Message = "Push token registered successfully" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "New push notification tables not available, using legacy method");
+            }
+
+            // Fallback to old method for backward compatibility
+            var profileId = User.FindFirst("profile_id")?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            
+            if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
+            {
+                return Unauthorized(new ErrorResponse { Message = "Profile ID not found in token" });
+            }
+            
+            if (string.IsNullOrEmpty(role))
+            {
+                return Unauthorized(new ErrorResponse { Message = "Role not found in token" });
+            }
+
+            var (success, message) = await _notificationService.RegisterPushTokenAsync(profileGuid, request.PushToken, role);
+            
+            if (!success)
+                return BadRequest(new ErrorResponse { Message = message });
+
+            return Ok(new { Success = true, Message = message });
         }
-        
-        if (string.IsNullOrEmpty(role))
+        catch (Exception ex)
         {
-            return Unauthorized(new ErrorResponse { Message = "Role not found in token" });
+            _logger.LogError(ex, "Error registering push token");
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
-
-        var (success, message) = await _notificationService.RegisterPushTokenAsync(profileGuid, request.PushToken, role);
-        
-        if (!success)
-            return BadRequest(new ErrorResponse { Message = message });
-
-        return Ok(new { Success = true, Message = message });
     }
 
     /// <summary>
