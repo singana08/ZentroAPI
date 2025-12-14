@@ -101,7 +101,7 @@ public class NotificationPreferencesResponse
 
 public class SendPushNotificationRequest
 {
-    public string UserId { get; set; } = string.Empty;
+    public string ProfileId { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public Dictionary<string, object>? Data { get; set; }
