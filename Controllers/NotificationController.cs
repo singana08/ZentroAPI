@@ -421,4 +421,40 @@ public class NotificationController : ControllerBase
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
+
+    /// <summary>
+    /// Manual test: Create fake service request and test notifications
+    /// </summary>
+    [HttpPost("test-manual")]
+    [Authorize]
+    public async Task<IActionResult> TestManualNotification()
+    {
+        try
+        {
+            // Create a test service request
+            var testRequest = new ServiceRequest
+            {
+                Id = Guid.NewGuid(),
+                RequesterId = Guid.NewGuid(),
+                MainCategory = "Test Category",
+                SubCategory = "Test Service",
+                Location = "Test Location",
+                Status = ServiceRequestStatus.Open,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.ServiceRequests.Add(testRequest);
+            await _context.SaveChangesAsync();
+
+            // Test notification
+            await _notificationService.NotifyProvidersOfNewServiceRequestAsync(testRequest.Id);
+
+            return Ok(new { Success = true, Message = "Test notification sent", ServiceRequestId = testRequest.Id });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in manual test");
+            return StatusCode(500, new { Error = ex.Message });
+        }
+    }
 }

@@ -92,13 +92,13 @@ public class ServiceRequestService : IServiceRequestService
             // Notify all providers of new service request
             try
             {
-                _logger.LogInformation($"Attempting to notify providers for service request {serviceRequest.Id}");
+                _logger.LogError($"DEBUG: About to call NotifyProvidersOfNewServiceRequestAsync for {serviceRequest.Id}");
                 await _notificationService.NotifyProvidersOfNewServiceRequestAsync(serviceRequest.Id);
-                _logger.LogInformation($"Provider notification completed for service request {serviceRequest.Id}");
+                _logger.LogError($"DEBUG: NotifyProvidersOfNewServiceRequestAsync completed for {serviceRequest.Id}");
             }
             catch (Exception notificationEx)
             {
-                _logger.LogError(notificationEx, $"Failed to notify providers for service request {serviceRequest.Id}: {notificationEx.Message}");
+                _logger.LogError(notificationEx, $"NOTIFICATION FAILED for service request {serviceRequest.Id}: {notificationEx.Message}");
                 // Don't fail the entire request creation if notifications fail
             }
 

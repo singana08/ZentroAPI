@@ -280,7 +280,18 @@ public class NotificationService : INotificationService
                 .Where(p => p.IsActive && p.NotificationsEnabled)
                 .ToListAsync();
                 
-            _logger.LogInformation($"Found {providers.Count} active providers with notifications enabled");
+            _logger.LogError($"DEBUG: Found {providers.Count} active providers with notifications enabled");
+            
+            if (providers.Count == 0)
+            {
+                // Check total providers
+                var totalProviders = await _context.Providers.CountAsync();
+                var activeProviders = await _context.Providers.CountAsync(p => p.IsActive);
+                var notificationEnabledProviders = await _context.Providers.CountAsync(p => p.NotificationsEnabled);
+                
+                _logger.LogError($"DEBUG: Total providers: {totalProviders}, Active: {activeProviders}, NotificationsEnabled: {notificationEnabledProviders}");
+                return;
+            }
 
             var notifications = new List<PushNotificationPayload>();
 
