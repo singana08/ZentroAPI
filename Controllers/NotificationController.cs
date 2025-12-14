@@ -423,6 +423,38 @@ public class NotificationController : ControllerBase
     }
 
     /// <summary>
+    /// Test provider query directly
+    /// </summary>
+    [HttpGet("test-provider-query")]
+    [Authorize]
+    public async Task<IActionResult> TestProviderQuery()
+    {
+        try
+        {
+            var allProviders = await _context.Providers.CountAsync();
+            var activeProviders = await _context.Providers.CountAsync(p => p.IsActive);
+            var notificationProviders = await _context.Providers.CountAsync(p => p.NotificationsEnabled);
+            var bothProviders = await _context.Providers.CountAsync(p => p.IsActive && p.NotificationsEnabled);
+            
+            var providerDetails = await _context.Providers
+                .Select(p => new { p.Id, p.IsActive, p.NotificationsEnabled, HasToken = !string.IsNullOrEmpty(p.PushToken) })
+                .ToListAsync();
+
+            return Ok(new { 
+                Total = allProviders,
+                Active = activeProviders,
+                NotificationsEnabled = notificationProviders,
+                ActiveAndNotifications = bothProviders,
+                Details = providerDetails
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Manual test: Create fake service request and test notifications
     /// </summary>
     [HttpPost("test-manual")]

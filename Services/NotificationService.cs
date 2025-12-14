@@ -276,9 +276,15 @@ public class NotificationService : INotificationService
 
             _logger.LogInformation($"Found service request: {serviceRequest.SubCategory} in {serviceRequest.Location}");
 
+            // Debug: Check what the query is actually doing
+            var allProviders = await _context.Providers.ToListAsync();
+            _logger.LogError($"DEBUG: Total providers in DB: {allProviders.Count}");
+            
             var providers = await _context.Providers
                 .Where(p => p.IsActive && p.NotificationsEnabled)
                 .ToListAsync();
+                
+            _logger.LogError($"DEBUG: Providers after filter - IsActive && NotificationsEnabled: {providers.Count}");
                 
             _logger.LogError($"DEBUG: Found {providers.Count} active providers with notifications enabled");
             
