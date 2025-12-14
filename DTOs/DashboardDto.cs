@@ -23,4 +23,19 @@ public class RequesterDashboardResponseDto
     public int CompletedServices { get; set; }
     public decimal TotalSpent { get; set; }
     public decimal SavedAmount { get; set; }
+    public List<ScheduledServiceDto> ScheduledServices { get; set; } = new();
+}
+
+/// <summary>
+/// Scheduled service DTO for dashboard
+/// </summary>
+public class ScheduledServiceDto
+{
+    public Guid RequestId { get; set; }
+    public Guid? ProviderId { get; set; }
+    public string MainCategory { get; set; } = string.Empty;
+    public string SubCategory { get; set; } = string.Empty;
+    public DateTime? Date { get; set; }
+    public string? Time { get; set; }
+    public string Status { get; set; } = string.Empty;
 }

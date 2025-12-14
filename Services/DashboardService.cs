@@ -139,13 +139,33 @@ public class DashboardService : IDashboardService
             // Calculate saved amount (placeholder logic - 10% of total spent)
             var savedAmount = totalSpent * 0.1m;
 
+            // Get scheduled services (requests with dates and assigned providers)
+            var scheduledServices = await _context.ServiceRequests
+                .Where(sr => sr.RequesterId == requesterId 
+                    && sr.Date.HasValue 
+                    && sr.Status != ServiceRequestStatus.Completed 
+                    && sr.Status != ServiceRequestStatus.Cancelled)
+                .OrderBy(sr => sr.Date)
+                .Select(sr => new ScheduledServiceDto
+                {
+                    RequestId = sr.Id,
+                    ProviderId = sr.AssignedProviderId,
+                    MainCategory = sr.MainCategory,
+                    SubCategory = sr.SubCategory,
+                    Date = sr.Date,
+                    Time = sr.Time,
+                    Status = sr.Status.ToString()
+                })
+                .ToListAsync();
+
             var response = new RequesterDashboardResponseDto
             {
                 UserName = requester.User?.FullName ?? "Requester",
                 ActiveRequests = activeRequests,
                 CompletedServices = completedRequests,
                 TotalSpent = totalSpent,
-                SavedAmount = savedAmount
+                SavedAmount = savedAmount,
+                ScheduledServices = scheduledServices
             };
 
             return (true, "Dashboard data retrieved successfully", response);
