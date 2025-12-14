@@ -613,14 +613,17 @@ public class ServiceRequestService : IServiceRequestService
         {
             _logger.LogInformation($"Getting provider jobs for provider {providerId}");
             
-            // Get requests where provider has quoted OR is assigned
+            // FIXED: Only show requests where:
+            // 1. Provider is assigned to the request, OR
+            // 2. Provider has quoted AND request is still unassigned (not given to someone else)
             var quotedRequestIds = await _dbContext.Quotes
                 .Where(q => q.ProviderId == providerId)
                 .Select(q => q.RequestId)
                 .ToListAsync();
 
             var baseQuery = _dbContext.ServiceRequests
-                .Where(sr => quotedRequestIds.Contains(sr.Id) || sr.AssignedProviderId == providerId)
+                .Where(sr => sr.AssignedProviderId == providerId || 
+                            (quotedRequestIds.Contains(sr.Id) && sr.AssignedProviderId == null))
                 .AsNoTracking();
 
             var total = await baseQuery.CountAsync();
