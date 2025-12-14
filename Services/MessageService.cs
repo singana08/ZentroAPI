@@ -363,12 +363,11 @@ public class MessageService : IMessageService
 
             _logger.LogInformation($"Found {hiddenRequestIds.Count} hidden requests and {quotedRequestIds.Count} already quoted requests for provider {providerId}");
 
-            // Get open/reopened requests without assigned provider OR any requests assigned to current provider
-            // Exclude requests where provider already has a quote
+            // FIXED: Only show unassigned open/reopened requests OR requests assigned to current provider
+            // Exclude requests assigned to OTHER providers and requests where provider already has a quote
             var baseQuery = _context.ServiceRequests
-                .Where(sr => ((sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
-                            && sr.AssignedProviderId == null) ||
-                            sr.AssignedProviderId == providerId)
+                .Where(sr => (sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
+                            && (sr.AssignedProviderId == null || sr.AssignedProviderId == providerId))
                 .Where(sr => !quotedRequestIds.Contains(sr.Id))
                 .AsNoTracking();
 
