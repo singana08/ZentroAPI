@@ -261,16 +261,26 @@ public class NotificationService : INotificationService
     {
         try
         {
+            _logger.LogInformation($"Starting notification process for service request {serviceRequestId}");
+            
             var serviceRequest = await _context.ServiceRequests
                 .Include(sr => sr.Requester)
                 .ThenInclude(r => r!.User)
                 .FirstOrDefaultAsync(sr => sr.Id == serviceRequestId);
 
-            if (serviceRequest == null) return;
+            if (serviceRequest == null) 
+            {
+                _logger.LogWarning($"Service request {serviceRequestId} not found for notifications");
+                return;
+            }
+
+            _logger.LogInformation($"Found service request: {serviceRequest.SubCategory} in {serviceRequest.Location}");
 
             var providers = await _context.Providers
                 .Where(p => p.IsActive && p.NotificationsEnabled)
                 .ToListAsync();
+                
+            _logger.LogInformation($"Found {providers.Count} active providers with notifications enabled");
 
             var notifications = new List<PushNotificationPayload>();
 
@@ -306,12 +316,15 @@ public class NotificationService : INotificationService
                 }
             }
 
+            _logger.LogInformation($"Prepared {notifications.Count} push notifications");
+            
             if (notifications.Any())
             {
-                await SendBatchNotificationsAsync(notifications);
+                var sentCount = await SendBatchNotificationsAsync(notifications);
+                _logger.LogInformation($"Sent {sentCount} push notifications successfully");
             }
 
-            _logger.LogInformation($"Notified {providers.Count} providers of new service request {serviceRequestId}");
+            _logger.LogInformation($"Completed notification process: {providers.Count} providers notified for service request {serviceRequestId}");
         }
         catch (Exception ex)
         {

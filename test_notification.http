@@ -1,0 +1,16 @@
+### Test new service request notification
+POST http://localhost:3001/api/notification/test/new-request
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "serviceRequestId": "{{latest_service_request_id}}"
+}
+
+### Check providers with notifications enabled
+GET http://localhost:3001/api/provider/debug/notifications-enabled
+Authorization: Bearer {{token}}
+
+### Check recent service requests
+GET http://localhost:3001/api/servicerequest/debug/recent
+Authorization: Bearer {{token}}

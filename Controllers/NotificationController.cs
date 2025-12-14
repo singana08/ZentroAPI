@@ -348,6 +348,42 @@ public class NotificationController : ControllerBase
     }
 
     /// <summary>
+    /// Debug: Check providers with notifications enabled
+    /// </summary>
+    [HttpGet("debug/providers")]
+    [Authorize]
+    public async Task<IActionResult> DebugProviders()
+    {
+        try
+        {
+            var providers = await _context.Providers
+                .Select(p => new { 
+                    p.Id, 
+                    p.IsActive, 
+                    p.NotificationsEnabled, 
+                    HasPushToken = !string.IsNullOrEmpty(p.PushToken),
+                    PushTokenPreview = p.PushToken != null ? p.PushToken.Substring(0, Math.Min(20, p.PushToken.Length)) + "..." : null
+                })
+                .ToListAsync();
+                
+            var activeWithNotifications = providers.Count(p => p.IsActive && p.NotificationsEnabled);
+            var withPushTokens = providers.Count(p => p.HasPushToken);
+            
+            return Ok(new { 
+                TotalProviders = providers.Count,
+                ActiveWithNotifications = activeWithNotifications,
+                WithPushTokens = withPushTokens,
+                Providers = providers 
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error debugging providers");
+            return StatusCode(500, new { Error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Test notification scenarios (Development only)
     /// </summary>
     [HttpPost("test/{scenario}")]

@@ -90,7 +90,17 @@ public class ServiceRequestService : IServiceRequestService
             await _dbContext.SaveChangesAsync();
 
             // Notify all providers of new service request
-            await _notificationService.NotifyProvidersOfNewServiceRequestAsync(serviceRequest.Id);
+            try
+            {
+                _logger.LogInformation($"Attempting to notify providers for service request {serviceRequest.Id}");
+                await _notificationService.NotifyProvidersOfNewServiceRequestAsync(serviceRequest.Id);
+                _logger.LogInformation($"Provider notification completed for service request {serviceRequest.Id}");
+            }
+            catch (Exception notificationEx)
+            {
+                _logger.LogError(notificationEx, $"Failed to notify providers for service request {serviceRequest.Id}: {notificationEx.Message}");
+                // Don't fail the entire request creation if notifications fail
+            }
 
             _logger.LogInformation(
                 $"Service request created successfully. ID: {serviceRequest.Id}, Requester: {userId}, Type: {bookingType}");
