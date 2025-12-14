@@ -120,28 +120,95 @@ public class NotificationService : INotificationService
         
         try
         {
-            var json = JsonSerializer.Serialize(notifications);
+            // Validate tokens before sending
+            var validNotifications = notifications.Where(n => 
+                !string.IsNullOrEmpty(n.To) && 
+                n.To.StartsWith("ExponentPushToken[") && 
+                n.To.EndsWith("]")
+            ).ToList();
+            
+            if (!validNotifications.Any())
+            {
+                _logger.LogWarning("No valid push tokens found");
+                return 0;
+            }
+            
+            _logger.LogInformation($"Sending {validNotifications.Count} valid notifications to Expo");
+            
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            
+            var json = JsonSerializer.Serialize(validNotifications, options);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             var response = await _httpClient.PostAsync(ExpoApiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
             
             if (response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation($"Expo API response: {responseContent}");
-                sentCount = notifications.Count;
+                _logger.LogInformation($"Expo API success: {responseContent}");
+                sentCount = validNotifications.Count;
+                
+                // Log successful notifications
+                await LogPushNotificationsAsync(validNotifications, "sent", null);
             }
             else
             {
-                _logger.LogWarning($"Expo API error: {response.StatusCode}");
+                _logger.LogError($"Expo API error {response.StatusCode}: {responseContent}");
+                
+                // Log failed notifications
+                await LogPushNotificationsAsync(validNotifications, "failed", responseContent);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending batch notifications to Expo");
+            
+            // Log failed notifications
+            await LogPushNotificationsAsync(notifications, "failed", ex.Message);
         }
         
         return sentCount;
+    }
+    
+    private async Task LogPushNotificationsAsync(List<PushNotificationPayload> notifications, string status, string? errorMessage)
+    {
+        try
+        {
+            var logs = new List<PushNotificationLog>();
+            
+            foreach (var notification in notifications)
+            {
+                // Find userId from push token
+                var userToken = await _context.UserPushTokens
+                    .FirstOrDefaultAsync(upt => upt.PushToken == notification.To);
+                    
+                if (userToken != null)
+                {
+                    logs.Add(new PushNotificationLog
+                    {
+                        UserId = userToken.UserId,
+                        Title = notification.Title,
+                        Body = notification.Body,
+                        Data = JsonSerializer.Serialize(notification.Data),
+                        Status = status,
+                        ErrorMessage = errorMessage
+                    });
+                }
+            }
+            
+            if (logs.Any())
+            {
+                _context.PushNotificationLogs.AddRange(logs);
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error logging push notifications");
+        }
     }
 
     public async Task<NotificationsListResponse> GetProfileNotificationsAsync(Guid profileId, int page, int pageSize, bool unreadOnly)
@@ -276,15 +343,23 @@ public class NotificationService : INotificationService
 
             _logger.LogInformation($"Found service request: {serviceRequest.SubCategory} in {serviceRequest.Location}");
 
-            // Debug: Check what the query is actually doing
-            var allProviders = await _context.Providers.ToListAsync();
-            _logger.LogError($"DEBUG: Total providers in DB: {allProviders.Count}");
-            
+            // Get providers with push tokens and notification preferences
             var providers = await _context.Providers
                 .Where(p => p.IsActive && p.NotificationsEnabled)
+                .Join(_context.UserPushTokens,
+                    p => p.UserId,
+                    upt => upt.UserId,
+                    (p, upt) => new { Provider = p, PushToken = upt.PushToken })
+                .Join(_context.NotificationPreferences,
+                    x => x.Provider.UserId,
+                    np => np.UserId,
+                    (x, np) => new { x.Provider, x.PushToken, Preferences = np })
+                .Where(x => !string.IsNullOrEmpty(x.PushToken) && 
+                           x.Preferences.EnablePushNotifications && 
+                           x.Preferences.NewRequests)
                 .ToListAsync();
                 
-            _logger.LogError($"DEBUG: Providers after filter - IsActive && NotificationsEnabled: {providers.Count}");
+            _logger.LogError($"DEBUG: Found {providers.Count} providers with push tokens");
                 
             _logger.LogError($"DEBUG: Found {providers.Count} active providers with notifications enabled");
             
@@ -301,11 +376,11 @@ public class NotificationService : INotificationService
 
             var notifications = new List<PushNotificationPayload>();
 
-            foreach (var provider in providers)
+            foreach (var providerData in providers)
             {
                 // Create in-app notification
                 await CreateNotificationAsync(
-                    provider.Id,
+                    providerData.Provider.Id,
                     "New Service Request",
                     $"{serviceRequest.SubCategory} service needed in {serviceRequest.Location}",
                     "new_service_request",
@@ -313,24 +388,21 @@ public class NotificationService : INotificationService
                     new { serviceRequestId, category = serviceRequest.MainCategory, subCategory = serviceRequest.SubCategory }
                 );
 
-                // Add push notification if token exists
-                if (!string.IsNullOrEmpty(provider.PushToken))
+                // Add push notification
+                notifications.Add(new PushNotificationPayload
                 {
-                    notifications.Add(new PushNotificationPayload
+                    To = providerData.PushToken,
+                    Title = "New Service Request",
+                    Body = $"{serviceRequest.SubCategory} service needed in {serviceRequest.Location}",
+                    Data = new
                     {
-                        To = provider.PushToken,
-                        Title = "New Service Request",
-                        Body = $"{serviceRequest.SubCategory} service needed in {serviceRequest.Location}",
-                        Data = new
-                        {
-                            serviceRequestId = serviceRequestId.ToString(),
-                            category = serviceRequest.MainCategory,
-                            subCategory = serviceRequest.SubCategory,
-                            location = serviceRequest.Location,
-                            type = "new_service_request"
-                        }
-                    });
-                }
+                        serviceRequestId = serviceRequestId.ToString(),
+                        category = serviceRequest.MainCategory,
+                        subCategory = serviceRequest.SubCategory,
+                        location = serviceRequest.Location,
+                        type = "new_service_request"
+                    }
+                });
             }
 
             _logger.LogInformation($"Prepared {notifications.Count} push notifications");

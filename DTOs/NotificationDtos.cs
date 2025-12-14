@@ -73,11 +73,20 @@ public class MarkAllReadResponse
 
 public class PushNotificationPayload
 {
+    [JsonPropertyName("to")]
     public string To { get; set; } = string.Empty;
+    
+    [JsonPropertyName("sound")]
     public string Sound { get; set; } = "default";
+    
+    [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
+    
+    [JsonPropertyName("body")]
     public string Body { get; set; } = string.Empty;
-    public object Data { get; set; } = new();
+    
+    [JsonPropertyName("data")]
+    public object? Data { get; set; }
 }
 
 public class NotificationPreferencesRequest

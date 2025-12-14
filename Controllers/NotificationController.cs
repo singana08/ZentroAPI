@@ -456,6 +456,65 @@ public class NotificationController : ControllerBase
     }
 
     /// <summary>
+    /// Simple test: No auth required
+    /// </summary>
+    [HttpGet("simple-test")]
+    public async Task<IActionResult> SimpleTest()
+    {
+        try
+        {
+            var providerCount = await _context.Providers.CountAsync();
+            var activeCount = await _context.Providers.CountAsync(p => p.IsActive);
+            var notificationCount = await _context.Providers.CountAsync(p => p.NotificationsEnabled);
+            var bothCount = await _context.Providers.CountAsync(p => p.IsActive && p.NotificationsEnabled);
+            
+            // Get latest service request
+            var latestRequest = await _context.ServiceRequests.OrderByDescending(sr => sr.CreatedAt).FirstOrDefaultAsync();
+            
+            if (latestRequest != null)
+            {
+                _logger.LogError($"SIMPLE TEST: Calling notification for {latestRequest.Id}");
+                await _notificationService.NotifyProvidersOfNewServiceRequestAsync(latestRequest.Id);
+            }
+            
+            return Ok(new { 
+                TotalProviders = providerCount,
+                ActiveProviders = activeCount,
+                NotificationEnabled = notificationCount,
+                BothEnabled = bothCount,
+                LatestRequestId = latestRequest?.Id,
+                TestCompleted = true
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { Error = ex.Message, StackTrace = ex.StackTrace });
+        }
+    }
+
+    /// <summary>
+    /// Direct test: Call notification method with existing service request ID
+    /// </summary>
+    [HttpPost("test-direct/{serviceRequestId}")]
+    [Authorize]
+    public async Task<IActionResult> TestDirectNotification(Guid serviceRequestId)
+    {
+        try
+        {
+            _logger.LogError($"DIRECT TEST: Starting notification for {serviceRequestId}");
+            await _notificationService.NotifyProvidersOfNewServiceRequestAsync(serviceRequestId);
+            _logger.LogError($"DIRECT TEST: Completed notification for {serviceRequestId}");
+            
+            return Ok(new { Success = true, Message = "Direct notification test completed", ServiceRequestId = serviceRequestId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in direct test");
+            return StatusCode(500, new { Error = ex.Message, StackTrace = ex.StackTrace });
+        }
+    }
+
+    /// <summary>
     /// Manual test: Create fake service request and test notifications
     /// </summary>
     [HttpPost("test-manual")]
