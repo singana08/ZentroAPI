@@ -35,13 +35,13 @@ public class PushNotificationController : ControllerBase
     {
         try
         {
-            var (_, userId, _) = _tokenService.ExtractTokenInfo(User);
-            if (!userId.HasValue)
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
             {
-                return Unauthorized(new ErrorResponse { Message = "User authentication failed" });
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
             }
 
-            var (success, message) = await _pushNotificationService.RegisterPushTokenAsync(userId.Value, request);
+            var (success, message) = await _pushNotificationService.RegisterPushTokenAsync(profileId.Value, request);
 
             if (!success)
             {
@@ -68,13 +68,13 @@ public class PushNotificationController : ControllerBase
     {
         try
         {
-            var (_, userId, _) = _tokenService.ExtractTokenInfo(User);
-            if (!userId.HasValue)
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
             {
-                return Unauthorized(new ErrorResponse { Message = "User authentication failed" });
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
             }
 
-            var (success, message) = await _pushNotificationService.UpdateNotificationPreferencesAsync(userId.Value, request);
+            var (success, message) = await _pushNotificationService.UpdateNotificationPreferencesAsync(profileId.Value, request);
 
             if (!success)
             {
@@ -101,13 +101,13 @@ public class PushNotificationController : ControllerBase
     {
         try
         {
-            var (_, userId, _) = _tokenService.ExtractTokenInfo(User);
-            if (!userId.HasValue)
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
             {
-                return Unauthorized(new ErrorResponse { Message = "User authentication failed" });
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
             }
 
-            var (success, message, data) = await _pushNotificationService.GetNotificationPreferencesAsync(userId.Value);
+            var (success, message, data) = await _pushNotificationService.GetNotificationPreferencesAsync(profileId.Value);
 
             if (!success)
             {

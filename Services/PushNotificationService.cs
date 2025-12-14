@@ -21,15 +21,34 @@ public class PushNotificationService : IPushNotificationService
         _logger = logger;
     }
 
-    public async Task<(bool Success, string Message)> RegisterPushTokenAsync(Guid userId, RegisterPushTokenRequest request)
+    public async Task<(bool Success, string Message)> RegisterPushTokenAsync(Guid profileId, RegisterPushTokenRequest request)
     {
         try
         {
+            // Get user ID from profile ID
+            var userIdQuery = await _context.Requesters
+                .Where(r => r.Id == profileId)
+                .Select(r => r.UserId)
+                .FirstOrDefaultAsync();
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                userIdQuery = await _context.Providers
+                    .Where(p => p.Id == profileId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                return (false, "Profile not found");
+            }
+
             // Deactivate old tokens for same device
             if (!string.IsNullOrEmpty(request.DeviceId))
             {
                 var oldTokens = await _context.UserPushTokens
-                    .Where(t => t.UserId == userId && t.DeviceId == request.DeviceId)
+                    .Where(t => t.UserId == userIdQuery && t.DeviceId == request.DeviceId)
                     .ToListAsync();
 
                 foreach (var token in oldTokens)
@@ -42,7 +61,7 @@ public class PushNotificationService : IPushNotificationService
             // Add new token
             var pushToken = new UserPushToken
             {
-                UserId = userId,
+                UserId = userIdQuery,
                 PushToken = request.PushToken,
                 DeviceType = request.DeviceType.ToLower(),
                 DeviceId = request.DeviceId,
@@ -57,21 +76,40 @@ public class PushNotificationService : IPushNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error registering push token for user {UserId}", userId);
+            _logger.LogError(ex, "Error registering push token for profile {ProfileId}", profileId);
             return (false, "Failed to register push token");
         }
     }
 
-    public async Task<(bool Success, string Message)> UpdateNotificationPreferencesAsync(Guid userId, NotificationPreferencesRequest request)
+    public async Task<(bool Success, string Message)> UpdateNotificationPreferencesAsync(Guid profileId, NotificationPreferencesRequest request)
     {
         try
         {
+            // Get user ID from profile ID
+            var userIdQuery = await _context.Requesters
+                .Where(r => r.Id == profileId)
+                .Select(r => r.UserId)
+                .FirstOrDefaultAsync();
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                userIdQuery = await _context.Providers
+                    .Where(p => p.Id == profileId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                return (false, "Profile not found");
+            }
+
             var preferences = await _context.NotificationPreferences
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.UserId == userIdQuery);
 
             if (preferences == null)
             {
-                preferences = new NotificationPreferences { UserId = userId };
+                preferences = new NotificationPreferences { UserId = userIdQuery };
                 _context.NotificationPreferences.Add(preferences);
             }
 
@@ -88,22 +126,41 @@ public class PushNotificationService : IPushNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating notification preferences for user {UserId}", userId);
+            _logger.LogError(ex, "Error updating notification preferences for profile {ProfileId}", profileId);
             return (false, "Failed to update notification preferences");
         }
     }
 
-    public async Task<(bool Success, string Message, NotificationPreferencesResponse? Data)> GetNotificationPreferencesAsync(Guid userId)
+    public async Task<(bool Success, string Message, NotificationPreferencesResponse? Data)> GetNotificationPreferencesAsync(Guid profileId)
     {
         try
         {
+            // Get user ID from profile ID
+            var userIdQuery = await _context.Requesters
+                .Where(r => r.Id == profileId)
+                .Select(r => r.UserId)
+                .FirstOrDefaultAsync();
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                userIdQuery = await _context.Providers
+                    .Where(p => p.Id == profileId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                return (false, "Profile not found", null);
+            }
+
             var preferences = await _context.NotificationPreferences
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.UserId == userIdQuery);
 
             if (preferences == null)
             {
                 // Create default preferences
-                preferences = new NotificationPreferences { UserId = userId };
+                preferences = new NotificationPreferences { UserId = userIdQuery };
                 _context.NotificationPreferences.Add(preferences);
                 await _context.SaveChangesAsync();
             }
@@ -122,18 +179,37 @@ public class PushNotificationService : IPushNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting notification preferences for user {UserId}", userId);
+            _logger.LogError(ex, "Error getting notification preferences for profile {ProfileId}", profileId);
             return (false, "Failed to get notification preferences", null);
         }
     }
 
-    public async Task<(bool Success, string Message)> SendPushNotificationAsync(Guid userId, string title, string body, Dictionary<string, object>? data = null, string priority = "normal")
+    public async Task<(bool Success, string Message)> SendPushNotificationAsync(Guid profileId, string title, string body, Dictionary<string, object>? data = null, string priority = "normal")
     {
         try
         {
+            // Get user ID from profile ID
+            var userIdQuery = await _context.Requesters
+                .Where(r => r.Id == profileId)
+                .Select(r => r.UserId)
+                .FirstOrDefaultAsync();
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                userIdQuery = await _context.Providers
+                    .Where(p => p.Id == profileId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            
+            if (userIdQuery == Guid.Empty)
+            {
+                return (false, "Profile not found");
+            }
+
             // Check user preferences
             var preferences = await _context.NotificationPreferences
-                .FirstOrDefaultAsync(p => p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.UserId == userIdQuery);
 
             if (preferences?.EnablePushNotifications == false)
             {
@@ -142,7 +218,7 @@ public class PushNotificationService : IPushNotificationService
 
             // Get active push tokens
             var tokens = await _context.UserPushTokens
-                .Where(t => t.UserId == userId && t.IsActive)
+                .Where(t => t.UserId == userIdQuery && t.IsActive)
                 .ToListAsync();
 
             if (!tokens.Any())
@@ -165,7 +241,7 @@ public class PushNotificationService : IPushNotificationService
             // Log notification
             var log = new PushNotificationLog
             {
-                UserId = userId,
+                UserId = userIdQuery,
                 Title = title,
                 Body = body,
                 Data = data != null ? JsonSerializer.Serialize(data) : null,
@@ -179,15 +255,24 @@ public class PushNotificationService : IPushNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending push notification to user {UserId}", userId);
+            _logger.LogError(ex, "Error sending push notification to profile {ProfileId}", profileId);
             return (false, "Failed to send push notification");
         }
     }
 
-    public async Task<(bool Success, string Message)> SendBatchNotificationsAsync(List<Guid> userIds, string title, string body, Dictionary<string, object>? data = null)
+    public async Task<(bool Success, string Message)> SendBatchNotificationsAsync(List<Guid> profileIds, string title, string body, Dictionary<string, object>? data = null)
     {
         try
         {
+            // Get user IDs from profile IDs
+            var userIds = await _context.Requesters
+                .Where(r => profileIds.Contains(r.Id))
+                .Select(r => r.UserId)
+                .Union(_context.Providers
+                    .Where(p => profileIds.Contains(p.Id))
+                    .Select(p => p.UserId))
+                .ToListAsync();
+
             var tokens = await _context.UserPushTokens
                 .Where(t => userIds.Contains(t.UserId) && t.IsActive)
                 .Join(_context.NotificationPreferences.Where(p => p.EnablePushNotifications),

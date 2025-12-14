@@ -39,30 +39,46 @@ public class NotificationController : ControllerBase
     {
         try
         {
-            // Extract user ID from token for new push notification system
-            var (_, userId, _) = _tokenService.ExtractTokenInfo(User);
-            if (!userId.HasValue)
+            _logger.LogInformation("Push token registration attempt: {PushToken}, Device: {DeviceType}, ID: {DeviceId}", 
+                request.PushToken, request.DeviceType, request.DeviceId);
+
+            // Extract profile ID from token for new push notification system
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            _logger.LogInformation("Extracted profileId from token: {ProfileId}", profileId);
+            
+            if (!profileId.HasValue)
             {
-                return Unauthorized(new ErrorResponse { Message = "User authentication failed" });
+                _logger.LogWarning("Profile ID not found in token");
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
             }
 
             // Register with new push notification service (if tables exist)
             try
             {
-                var (newSuccess, newMessage) = await _pushNotificationService.RegisterPushTokenAsync(userId.Value, request);
+                _logger.LogInformation("Attempting to register with new push notification service for profile {ProfileId}", profileId.Value);
+                var (newSuccess, newMessage) = await _pushNotificationService.RegisterPushTokenAsync(profileId.Value, request);
+                _logger.LogInformation("New push service result: Success={Success}, Message={Message}", newSuccess, newMessage);
+                
                 if (newSuccess)
                 {
                     return Ok(new { Success = true, Message = "Push token registered successfully" });
                 }
+                else
+                {
+                    _logger.LogWarning("New push service failed: {Message}", newMessage);
+                    return BadRequest(new ErrorResponse { Message = newMessage });
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "New push notification tables not available, using legacy method");
+                _logger.LogError(ex, "New push notification service failed, using legacy method");
             }
 
             // Fallback to old method for backward compatibility
             var profileId = User.FindFirst("profile_id")?.Value;
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            
+            _logger.LogInformation("Fallback to legacy method: ProfileId={ProfileId}, Role={Role}", profileId, role);
             
             if (string.IsNullOrEmpty(profileId) || !Guid.TryParse(profileId, out var profileGuid))
             {
@@ -75,6 +91,7 @@ public class NotificationController : ControllerBase
             }
 
             var (success, message) = await _notificationService.RegisterPushTokenAsync(profileGuid, request.PushToken, role);
+            _logger.LogInformation("Legacy service result: Success={Success}, Message={Message}", success, message);
             
             if (!success)
                 return BadRequest(new ErrorResponse { Message = message });

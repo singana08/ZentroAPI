@@ -4,11 +4,11 @@ namespace ZentroAPI.Services;
 
 public interface IPushNotificationService
 {
-    Task<(bool Success, string Message)> RegisterPushTokenAsync(Guid userId, RegisterPushTokenRequest request);
-    Task<(bool Success, string Message)> UpdateNotificationPreferencesAsync(Guid userId, NotificationPreferencesRequest request);
-    Task<(bool Success, string Message, NotificationPreferencesResponse? Data)> GetNotificationPreferencesAsync(Guid userId);
-    Task<(bool Success, string Message)> SendPushNotificationAsync(Guid userId, string title, string body, Dictionary<string, object>? data = null, string priority = "normal");
-    Task<(bool Success, string Message)> SendBatchNotificationsAsync(List<Guid> userIds, string title, string body, Dictionary<string, object>? data = null);
+    Task<(bool Success, string Message)> RegisterPushTokenAsync(Guid profileId, RegisterPushTokenRequest request);
+    Task<(bool Success, string Message)> UpdateNotificationPreferencesAsync(Guid profileId, NotificationPreferencesRequest request);
+    Task<(bool Success, string Message, NotificationPreferencesResponse? Data)> GetNotificationPreferencesAsync(Guid profileId);
+    Task<(bool Success, string Message)> SendPushNotificationAsync(Guid profileId, string title, string body, Dictionary<string, object>? data = null, string priority = "normal");
+    Task<(bool Success, string Message)> SendBatchNotificationsAsync(List<Guid> profileIds, string title, string body, Dictionary<string, object>? data = null);
     
     // Event-based notifications
     Task NotifyNewServiceRequestAsync(Guid requestId, List<Guid> providerIds);
