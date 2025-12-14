@@ -343,21 +343,18 @@ public class NotificationService : INotificationService
 
             _logger.LogInformation($"Found service request: {serviceRequest.SubCategory} in {serviceRequest.Location}");
 
-            // Get providers with push tokens and notification preferences
+            // IMPORTANT: UserPushTokens.UserId links to Provider.Id (NOT Provider.UserId)
+            // Get providers with push tokens - join Provider.Id with UserPushTokens.UserId
             var providers = await _context.Providers
                 .Where(p => p.IsActive && p.NotificationsEnabled)
                 .Join(_context.UserPushTokens,
-                    p => p.UserId,
-                    upt => upt.UserId,
+                    p => p.Id,  // Provider.Id
+                    upt => upt.UserId,  // UserPushTokens.UserId
                     (p, upt) => new { Provider = p, PushToken = upt.PushToken })
-                .Join(_context.NotificationPreferences,
-                    x => x.Provider.UserId,
-                    np => np.UserId,
-                    (x, np) => new { x.Provider, x.PushToken, Preferences = np })
-                .Where(x => !string.IsNullOrEmpty(x.PushToken) && 
-                           x.Preferences.EnablePushNotifications && 
-                           x.Preferences.NewRequests)
+                .Where(x => !string.IsNullOrEmpty(x.PushToken))
                 .ToListAsync();
+            
+            _logger.LogError($"DEBUG: Found {providers.Count} providers with push tokens");
                 
             _logger.LogError($"DEBUG: Found {providers.Count} providers with push tokens");
                 
