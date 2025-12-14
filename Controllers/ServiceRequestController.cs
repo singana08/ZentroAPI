@@ -63,7 +63,7 @@ public class ServiceRequestController : ControllerBase
         if (!success)
             return BadRequest(new ErrorResponse { Message = message });
 
-        return CreatedAtAction(nameof(Get), new { id = data?.Id }, data);
+        return Ok(data);
     }
 
     /// <summary>
@@ -123,62 +123,51 @@ public class ServiceRequestController : ControllerBase
         return Ok(new { Success = true, Message = message });
     }
 
-    // SHARED ENDPOINTS
+    // PROVIDER ENDPOINTS - Clear separation of concerns
     
     /// <summary>
-    /// Get service requests with auto-detection of user type
-    /// Routes to provider jobs or requester requests based on profile
-    /// Maintained for backward compatibility
+    /// PROVIDER: Get jobs I've quoted on or been assigned to
+    /// This is the provider's "My Jobs" dashboard showing their active work pipeline
+    /// Includes: requests quoted on + requests assigned to this provider
     /// </summary>
-    [HttpGet]
+    [HttpGet("provider/my-jobs")]
+    [HttpGet("provider")] // OLD ENDPOINT - for backward compatibility
     [Authorize]
-    public async Task<IActionResult> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? status = null, [FromQuery] string? bookingType = null, [FromQuery] string? category = null)
+    public async Task<IActionResult> ProviderMyJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
         if (!profileId.HasValue)
             return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
+        // Verify user is a provider
         var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
-        var (success, message, data) = isProvider
-            ? await _messageService.GetProviderJobsAsync(profileId.Value, page, pageSize)
-            : await _serviceRequestService.GetUserServiceRequestsAsync(profileId.Value, page, pageSize, status, bookingType, category);
+        if (!isProvider)
+            return BadRequest(new ErrorResponse { Message = "Only providers can access this endpoint" });
 
+        var (success, message, data) = await _serviceRequestService.GetProviderJobsAsync(profileId.Value, page, pageSize);
         return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
-    // PROVIDER ENDPOINTS
-    
     /// <summary>
-    /// Get provider's jobs - requests they've quoted on or been assigned to
-    /// Shows provider's active pipeline including quoted and assigned requests
-    /// Used for "My Jobs" section in provider dashboard
+    /// PROVIDER: Get available jobs to quote on
+    /// This shows new opportunities - open requests that provider hasn't quoted on yet
+    /// Excludes: hidden requests, already quoted requests, requests assigned to other providers
     /// </summary>
-    [HttpGet("provider")]
+    [HttpGet("provider/available-jobs")]
+    [HttpGet("provider/available")] // OLD ENDPOINT - for backward compatibility
     [Authorize]
-    public async Task<IActionResult> Provider([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> ProviderAvailableJobs([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
         if (!profileId.HasValue)
             return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
 
-        var (success, message, data) = await _messageService.GetProviderJobsAsync(profileId.Value, page, pageSize);
-        return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
-    }
+        // Verify user is a provider
+        var isProvider = await _context.Providers.AnyAsync(p => p.Id == profileId.Value);
+        if (!isProvider)
+            return BadRequest(new ErrorResponse { Message = "Only providers can access this endpoint" });
 
-    /// <summary>
-    /// Get available service requests for providers to quote on
-    /// Shows open/reopened requests excluding hidden ones
-    /// Includes requests assigned to current provider for ongoing work
-    /// </summary>
-    [HttpGet("provider/available")]
-    [Authorize]
-    public async Task<IActionResult> Available([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-    {
-        var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
-        if (!profileId.HasValue)
-            return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
-
-        var (success, message, data) = await _messageService.GetOpenRequestsAsync(profileId.Value, page, pageSize);
+        var (success, message, data) = await _serviceRequestService.GetAvailableJobsForProviderAsync(profileId.Value, page, pageSize);
         return success ? Ok(data) : BadRequest(new ErrorResponse { Message = message });
     }
 
@@ -417,9 +406,4 @@ public class ServiceRequestController : ControllerBase
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
-
-
-
-
-
 }

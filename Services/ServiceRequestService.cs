@@ -602,4 +602,152 @@ public class ServiceRequestService : IServiceRequestService
                 : null
         };
     }
+
+    /// <summary>
+    /// PROVIDER: Get jobs I've quoted on or been assigned to (My Jobs)
+    /// </summary>
+    public async Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetProviderJobsAsync(
+        Guid providerId, int page = 1, int pageSize = 10)
+    {
+        try
+        {
+            _logger.LogInformation($"Getting provider jobs for provider {providerId}");
+            
+            // Get requests where provider has quoted OR is assigned
+            var quotedRequestIds = await _dbContext.Quotes
+                .Where(q => q.ProviderId == providerId)
+                .Select(q => q.RequestId)
+                .ToListAsync();
+
+            var baseQuery = _dbContext.ServiceRequests
+                .Where(sr => quotedRequestIds.Contains(sr.Id) || sr.AssignedProviderId == providerId)
+                .AsNoTracking();
+
+            var total = await baseQuery.CountAsync();
+
+            var serviceRequests = await baseQuery
+                .OrderByDescending(sr => sr.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var requests = new List<ServiceRequestResponseDto>();
+            foreach (var serviceRequest in serviceRequests)
+            {
+                var responseDto = MapToResponseDto(serviceRequest, providerId);
+                requests.Add(responseDto);
+            }
+
+            var response = new PaginatedServiceRequestsDto
+            {
+                Data = requests,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+
+            return (true, "Provider jobs retrieved successfully", response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error getting provider jobs for provider {providerId}");
+            return (false, "Failed to get provider jobs", null);
+        }
+    }
+
+    /// <summary>
+    /// PROVIDER: Get available jobs to quote on (Available Jobs)
+    /// </summary>
+    public async Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetAvailableJobsForProviderAsync(
+        Guid providerId, int page = 1, int pageSize = 10)
+    {
+        try
+        {
+            _logger.LogInformation($"Getting available jobs for provider {providerId}");
+            
+            // Get hidden request IDs for this provider
+            var hiddenRequestIds = await _dbContext.ProviderRequestStatuses
+                .Where(prs => prs.ProviderId == providerId && prs.Status == ProviderStatus.Hidden)
+                .Select(prs => prs.RequestId)
+                .ToListAsync();
+
+            // Get request IDs where this provider already has a quote
+            var quotedRequestIds = await _dbContext.Quotes
+                .Where(q => q.ProviderId == providerId)
+                .Select(q => q.RequestId)
+                .ToListAsync();
+
+            // FIXED: Only show unassigned open/reopened requests OR requests assigned to current provider
+            // Exclude requests assigned to OTHER providers and requests where provider already has a quote
+            var baseQuery = _dbContext.ServiceRequests
+                .Where(sr => (sr.Status == ServiceRequestStatus.Open || sr.Status == ServiceRequestStatus.Reopened) 
+                            && (sr.AssignedProviderId == null || sr.AssignedProviderId == providerId))
+                .Where(sr => !quotedRequestIds.Contains(sr.Id) && !hiddenRequestIds.Contains(sr.Id))
+                .AsNoTracking();
+
+            var total = await baseQuery.CountAsync();
+
+            var serviceRequests = await baseQuery
+                .OrderByDescending(sr => sr.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var requests = new List<ServiceRequestResponseDto>();
+            foreach (var serviceRequest in serviceRequests)
+            {
+                // Get provider status for this request
+                var providerStatus = await _dbContext.ProviderRequestStatuses
+                    .FirstOrDefaultAsync(prs => prs.ProviderId == providerId && prs.RequestId == serviceRequest.Id);
+
+                // Get quote count (don't show actual quotes for available jobs)
+                var quoteCount = await _dbContext.Quotes
+                    .Where(q => q.RequestId == serviceRequest.Id)
+                    .CountAsync();
+
+                var responseDto = new ServiceRequestResponseDto
+                {
+                    Id = serviceRequest.Id,
+                    UserId = serviceRequest.RequesterId,
+                    BookingType = serviceRequest.BookingType.ToString(),
+                    MainCategory = serviceRequest.MainCategory,
+                    SubCategory = serviceRequest.SubCategory,
+                    Title = serviceRequest.Title,
+                    Description = serviceRequest.Description,
+                    Date = serviceRequest.Date,
+                    Time = serviceRequest.Time,
+                    Location = serviceRequest.Location,
+                    Notes = serviceRequest.Notes,
+                    AdditionalNotes = serviceRequest.AdditionalNotes,
+                    AssignedProviderId = serviceRequest.AssignedProviderId,
+                    RequestStatus = serviceRequest.Status.ToString(),
+                    ProviderStatus = providerStatus?.Status.ToString() ?? "New",
+                    QuoteCount = quoteCount,
+                    Quotes = new List<QuoteResponseDto>(), // Don't show quotes for available jobs
+                    CreatedAt = serviceRequest.CreatedAt,
+                    UpdatedAt = serviceRequest.UpdatedAt,
+                    Coordinates = serviceRequest.Latitude.HasValue && serviceRequest.Longitude.HasValue 
+                        ? new CoordinatesDto { Latitude = serviceRequest.Latitude.Value, Longitude = serviceRequest.Longitude.Value }
+                        : null
+                };
+
+                requests.Add(responseDto);
+            }
+
+            var response = new PaginatedServiceRequestsDto
+            {
+                Data = requests,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+
+            return (true, "Available jobs retrieved successfully", response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error getting available jobs for provider {providerId}");
+            return (false, "Failed to get available jobs", null);
+        }
+    }
 }

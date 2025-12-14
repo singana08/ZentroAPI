@@ -71,4 +71,30 @@ public interface IServiceRequestService
         int page = 1,
         int pageSize = 10,
         string? status = null);
+
+    /// <summary>
+    /// PROVIDER: Get jobs I've quoted on or been assigned to
+    /// Shows provider's active work pipeline
+    /// </summary>
+    /// <param name="providerId">Provider ID</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">Records per page</param>
+    /// <returns>Provider's jobs (quoted + assigned)</returns>
+    Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetProviderJobsAsync(
+        Guid providerId,
+        int page = 1,
+        int pageSize = 10);
+
+    /// <summary>
+    /// PROVIDER: Get available jobs to quote on
+    /// Shows open requests excluding hidden/quoted ones
+    /// </summary>
+    /// <param name="providerId">Provider ID</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">Records per page</param>
+    /// <returns>Available jobs for provider to quote on</returns>
+    Task<(bool Success, string Message, PaginatedServiceRequestsDto? Data)> GetAvailableJobsForProviderAsync(
+        Guid providerId,
+        int page = 1,
+        int pageSize = 10);
 }
