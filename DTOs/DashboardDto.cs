@@ -12,3 +12,15 @@ public class ProviderDashboardResponseDto
     public int NotificationCount { get; set; }
     public string UserName { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Requester dashboard summary response DTO
+/// </summary>
+public class RequesterDashboardResponseDto
+{
+    public string UserName { get; set; } = string.Empty;
+    public int ActiveRequests { get; set; }
+    public int CompletedServices { get; set; }
+    public decimal TotalSpent { get; set; }
+    public decimal SavedAmount { get; set; }
+}

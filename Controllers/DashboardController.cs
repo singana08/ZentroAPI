@@ -31,7 +31,7 @@ public class DashboardController : ControllerBase
     /// Get provider dashboard summary data
     /// </summary>
     /// <returns>Provider dashboard summary</returns>
-    [HttpGet]
+    [HttpGet("provider")]
     [Authorize]
     [ProducesResponseType(typeof(ProviderDashboardResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -66,6 +66,49 @@ public class DashboardController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving provider dashboard");
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Get requester dashboard summary data
+    /// </summary>
+    /// <returns>Requester dashboard summary</returns>
+    [HttpGet("requester")]
+    [Authorize]
+    [ProducesResponseType(typeof(RequesterDashboardResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetRequesterDashboard()
+    {
+        try
+        {
+            // Extract requester ID from token
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
+            {
+                return Unauthorized(new ErrorResponse { Message = "Profile authentication failed" });
+            }
+
+            _logger.LogInformation("Getting dashboard data for requester {RequesterId}", profileId.Value);
+
+            var (success, message, data) = await _dashboardService.GetRequesterDashboardAsync(profileId.Value);
+
+            if (!success)
+            {
+                if (message.Contains("not found"))
+                {
+                    return NotFound(new ErrorResponse { Message = message });
+                }
+                return BadRequest(new ErrorResponse { Message = message });
+            }
+
+            return Ok(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving requester dashboard");
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }

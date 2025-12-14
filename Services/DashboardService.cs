@@ -94,4 +94,66 @@ public class DashboardService : IDashboardService
             return (false, "An error occurred while retrieving dashboard data", null);
         }
     }
+
+    public async Task<(bool Success, string Message, RequesterDashboardResponseDto? Data)> GetRequesterDashboardAsync(
+        Guid requesterId)
+    {
+        try
+        {
+            // Get requester with user details
+            var requester = await _context.Requesters
+                .Include(r => r.User)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == requesterId);
+
+            if (requester == null)
+            {
+                return (false, "Requester not found", null);
+            }
+
+            // Count active requests (anything except completed or cancelled)
+            var activeRequests = await _context.ServiceRequests
+                .CountAsync(sr => sr.RequesterId == requesterId 
+                    && sr.Status != ServiceRequestStatus.Completed 
+                    && sr.Status != ServiceRequestStatus.Cancelled);
+
+            // Count completed requests
+            var completedRequests = await _context.ServiceRequests
+                .CountAsync(sr => sr.RequesterId == requesterId 
+                    && sr.Status == ServiceRequestStatus.Completed);
+
+            // Calculate total spent on completed requests
+            var totalSpent = await _context.ServiceRequests
+                .Where(sr => sr.RequesterId == requesterId 
+                    && sr.Status == ServiceRequestStatus.Completed)
+                .Join(_context.Quotes,
+                    sr => sr.Id,
+                    q => q.RequestId,
+                    (sr, q) => q.Price)
+                .SumAsync();
+
+            // Count unread notifications
+            var notificationCount = await _context.Notifications
+                .CountAsync(n => n.ProfileId == requesterId && !n.IsRead);
+
+            // Calculate saved amount (placeholder logic - 10% of total spent)
+            var savedAmount = totalSpent * 0.1m;
+
+            var response = new RequesterDashboardResponseDto
+            {
+                UserName = requester.User?.FullName ?? "Requester",
+                ActiveRequests = activeRequests,
+                CompletedServices = completedRequests,
+                TotalSpent = totalSpent,
+                SavedAmount = savedAmount
+            };
+
+            return (true, "Dashboard data retrieved successfully", response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving dashboard data for requester {RequesterId}", requesterId);
+            return (false, "An error occurred while retrieving dashboard data", null);
+        }
+    }
 }
