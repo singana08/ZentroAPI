@@ -29,6 +29,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
+    public DbSet<NotificationPreferences> NotificationPreferences => Set<NotificationPreferences>();
+    public DbSet<PushNotificationLog> PushNotificationLogs => Set<PushNotificationLog>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -516,6 +519,82 @@ public class ApplicationDbContext : DbContext
             .HasOne(rt => rt.User)
             .WithMany()
             .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // UserPushToken configuration
+        modelBuilder.Entity<UserPushToken>(entity =>
+        {
+            entity.ToTable("user_push_tokens");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.PushToken).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.DeviceType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.DeviceId).HasMaxLength(255);
+            entity.Property(e => e.AppVersion).HasMaxLength(50);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.PushToken).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.DeviceId });
+        });
+
+        // UserPushToken relationships
+        modelBuilder.Entity<UserPushToken>()
+            .HasOne(upt => upt.User)
+            .WithMany()
+            .HasForeignKey(upt => upt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // NotificationPreferences configuration
+        modelBuilder.Entity<NotificationPreferences>(entity =>
+        {
+            entity.ToTable("notification_preferences");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.EnablePushNotifications).HasDefaultValue(true);
+            entity.Property(e => e.NewRequests).HasDefaultValue(true);
+            entity.Property(e => e.QuoteResponses).HasDefaultValue(true);
+            entity.Property(e => e.StatusUpdates).HasDefaultValue(true);
+            entity.Property(e => e.Messages).HasDefaultValue(true);
+            entity.Property(e => e.Reminders).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // NotificationPreferences relationships
+        modelBuilder.Entity<NotificationPreferences>()
+            .HasOne(np => np.User)
+            .WithMany()
+            .HasForeignKey(np => np.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // PushNotificationLog configuration
+        modelBuilder.Entity<PushNotificationLog>(entity =>
+        {
+            entity.ToTable("push_notification_logs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Body).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Data).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("sent");
+            entity.Property(e => e.SentAt).IsRequired();
+            entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+            
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.SentAt);
+            entity.HasIndex(e => e.Status);
+        });
+
+        // PushNotificationLog relationships
+        modelBuilder.Entity<PushNotificationLog>()
+            .HasOne(pnl => pnl.User)
+            .WithMany()
+            .HasForeignKey(pnl => pnl.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
     }

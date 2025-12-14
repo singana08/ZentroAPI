@@ -6,6 +6,13 @@ public class RegisterPushTokenRequest
 {
     [Required]
     public string PushToken { get; set; } = string.Empty;
+    
+    [Required]
+    public string DeviceType { get; set; } = string.Empty; // "ios" or "android"
+    
+    public string? DeviceId { get; set; }
+    
+    public string? AppVersion { get; set; }
 }
 
 public class NotifyProvidersRequest
@@ -70,4 +77,50 @@ public class PushNotificationPayload
     public string Title { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;
     public object Data { get; set; } = new();
+}
+
+public class NotificationPreferencesRequest
+{
+    public bool EnablePushNotifications { get; set; }
+    public bool NewRequests { get; set; }
+    public bool QuoteResponses { get; set; }
+    public bool StatusUpdates { get; set; }
+    public bool Messages { get; set; }
+    public bool Reminders { get; set; }
+}
+
+public class NotificationPreferencesResponse
+{
+    public bool EnablePushNotifications { get; set; }
+    public bool NewRequests { get; set; }
+    public bool QuoteResponses { get; set; }
+    public bool StatusUpdates { get; set; }
+    public bool Messages { get; set; }
+    public bool Reminders { get; set; }
+}
+
+public class SendPushNotificationRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    public Dictionary<string, object>? Data { get; set; }
+    public string Priority { get; set; } = "normal"; // "high" or "normal"
+    public string Sound { get; set; } = "default";
+}
+
+public class SuccessResponse
+{
+    public bool Success { get; set; } = true;
+    public string Message { get; set; } = string.Empty;
+}
+
+public class ExpoMessage
+{
+    public string To { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    public Dictionary<string, object>? Data { get; set; }
+    public string Priority { get; set; } = "normal";
+    public string Sound { get; set; } = "default";
 }

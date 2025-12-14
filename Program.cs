@@ -230,7 +230,9 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IProviderMatchingService, ProviderMatchingService>();
 builder.Services.AddScoped<IProviderService, ProviderService>();
 builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddHttpClient<NotificationService>();
+builder.Services.AddHttpClient<PushNotificationService>();
 
 // Add SignalR
 builder.Services.AddSignalR();
