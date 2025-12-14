@@ -1,6 +1,7 @@
 using ZentroAPI.DTOs;
 using ZentroAPI.Services;
 using ZentroAPI.Data;
+using ZentroAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
