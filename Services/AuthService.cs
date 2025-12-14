@@ -666,4 +666,74 @@ public class AuthService : IAuthService
             return null;
         }
     }
+    
+    public async Task<(bool Success, string Message, TokenResponse? TokenResponse)> RefreshTokenAsync(string refreshToken)
+    {
+        try
+        {
+            var tokenRecord = await _context.RefreshTokens
+                .Include(rt => rt.User)
+                .ThenInclude(u => u!.RequesterProfile)
+                .Include(rt => rt.User)
+                .ThenInclude(u => u!.ProviderProfile)
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.IsActive);
+
+            if (tokenRecord == null)
+            {
+                return (false, "Invalid or expired refresh token", null);
+            }
+
+            var user = tokenRecord.User!;
+            
+            // Determine active role and profile ID based on user's default role
+            string activeRole = user.DefaultRole ?? "REQUESTER";
+            Guid? profileId = null;
+            
+            if (activeRole == "PROVIDER" && user.ProviderProfile != null)
+            {
+                profileId = user.ProviderProfile.Id;
+            }
+            else if (user.RequesterProfile != null)
+            {
+                profileId = user.RequesterProfile.Id;
+                activeRole = "REQUESTER";
+            }
+
+            // Generate new token response
+            var tokenResponse = await _jwtService.GenerateTokenResponse(user, activeRole, profileId, tokenRecord.DeviceId);
+
+            // Revoke old refresh token
+            tokenRecord.RevokedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return (true, "Token refreshed successfully", tokenResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing token");
+            return (false, "Error refreshing token", null);
+        }
+    }
+
+    public async Task<(bool Success, string Message)> LogoutAsync(string refreshToken)
+    {
+        try
+        {
+            var tokenRecord = await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+            if (tokenRecord != null)
+            {
+                tokenRecord.RevokedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return (true, "Logged out successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during logout");
+            return (false, "Error during logout");
+        }
+    }
 }

@@ -21,4 +21,14 @@ public interface IJwtService
     /// Get user ID from token
     /// </summary>
     string? GetUserIdFromToken(string token);
+    
+    /// <summary>
+    /// Generate refresh token
+    /// </summary>
+    string GenerateRefreshToken();
+    
+    /// <summary>
+    /// Generate token response with both access and refresh tokens
+    /// </summary>
+    Task<TokenResponse> GenerateTokenResponse(User user, string? activeRole = null, Guid? profileId = null, string? deviceId = null);
 }

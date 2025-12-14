@@ -1,8 +1,11 @@
 using ZentroAPI.Models;
+using ZentroAPI.Data;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 
 namespace ZentroAPI.Services;
 
@@ -13,12 +16,15 @@ public class JwtService : IJwtService
     private readonly string _audience;
     private readonly int _expirationMinutes;
     private readonly ILogger<JwtService> _logger;
+    private readonly ApplicationDbContext _context;
 
     public JwtService(
         IConfiguration configuration,
-        ILogger<JwtService> logger)
+        ILogger<JwtService> logger,
+        ApplicationDbContext context)
     {
         _logger = logger;
+        _context = context;
         var jwtSettings = configuration.GetSection("JwtSettings");
         _secretKey = jwtSettings.GetValue<string>("SecretKey") ?? string.Empty;
         _issuer = jwtSettings.GetValue<string>("Issuer") ?? "HaluluAPI";
@@ -128,5 +134,45 @@ public class JwtService : IJwtService
             _logger.LogWarning(ex, "Error extracting user ID from token");
             return null;
         }
+    }
+    
+    public string GenerateRefreshToken()
+    {
+        var randomBytes = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes);
+    }
+    
+    public async Task<TokenResponse> GenerateTokenResponse(User user, string? activeRole = null, Guid? profileId = null, string? deviceId = null)
+    {
+        var accessToken = GenerateToken(user, activeRole, profileId);
+        var refreshToken = GenerateRefreshToken();
+        
+        // Store refresh token in database
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = refreshToken,
+            ExpiresAt = DateTime.UtcNow.AddMonths(6),
+            DeviceId = deviceId
+        };
+        
+        _context.RefreshTokens.Add(refreshTokenEntity);
+        await _context.SaveChangesAsync();
+        
+        return new TokenResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpiresIn = _expirationMinutes * 60,
+            User = new {
+                id = profileId ?? user.Id,
+                email = user.Email,
+                phoneNumber = user.PhoneNumber,
+                fullName = user.FullName,
+                activeRole = activeRole ?? "REQUESTER"
+            }
+        };
     }
 }

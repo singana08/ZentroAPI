@@ -377,6 +377,40 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Refresh access token using refresh token
+    /// </summary>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        var (success, message, tokenResponse) = await _authService.RefreshTokenAsync(request.RefreshToken);
+        
+        if (!success)
+        {
+            return BadRequest(new ErrorResponse { Message = message });
+        }
+
+        return Ok(tokenResponse);
+    }
+
+    /// <summary>
+    /// Logout and revoke refresh token
+    /// </summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    {
+        var (success, message) = await _authService.LogoutAsync(request.RefreshToken);
+        
+        if (!success)
+        {
+            return BadRequest(new ErrorResponse { Message = message });
+        }
+
+        return Ok(new { Success = true, Message = message });
+    }
+
+    /// <summary>
     /// Test token parsing without authentication
     /// </summary>
     [HttpGet("test-token")]

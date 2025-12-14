@@ -48,4 +48,14 @@ public interface IAuthService
     /// Get user profile data by profile ID
     /// </summary>
     Task<ProfileDto?> GetUserProfileAsync(string profileId);
+    
+    /// <summary>
+    /// Refresh access token using refresh token
+    /// </summary>
+    Task<(bool Success, string Message, TokenResponse? TokenResponse)> RefreshTokenAsync(string refreshToken);
+    
+    /// <summary>
+    /// Logout and revoke refresh token
+    /// </summary>
+    Task<(bool Success, string Message)> LogoutAsync(string refreshToken);
 }

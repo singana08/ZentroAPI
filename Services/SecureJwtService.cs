@@ -219,4 +219,19 @@ public class SecureJwtService : IJwtService
 
         _logger.LogInformation("JWT secret key validation passed - {KeyLength} bytes", keyBytes.Length);
     }
+    
+    public string GenerateRefreshToken()
+    {
+        var randomBytes = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes);
+    }
+    
+    public Task<TokenResponse> GenerateTokenResponse(Models.User user, string? activeRole = null, Guid? profileId = null, string? deviceId = null)
+    {
+        // SecureJwtService doesn't support database operations
+        // This should be handled by the main JwtService
+        throw new NotImplementedException("Use JwtService for refresh token functionality");
+    }
 }
