@@ -44,32 +44,50 @@ public class PushNotificationService : IPushNotificationService
                 return (false, "Profile not found");
             }
 
-            // Deactivate old tokens for same device
-            if (!string.IsNullOrEmpty(request.DeviceId))
-            {
-                var oldTokens = await _context.UserPushTokens
-                    .Where(t => t.UserId == userIdQuery && t.DeviceId == request.DeviceId)
-                    .ToListAsync();
+            // Check if push token already exists
+            var existingToken = await _context.UserPushTokens
+                .FirstOrDefaultAsync(t => t.PushToken == request.PushToken);
 
-                foreach (var token in oldTokens)
+            if (existingToken != null)
+            {
+                // Update existing token
+                existingToken.UserId = userIdQuery;
+                existingToken.DeviceType = request.DeviceType.ToLower();
+                existingToken.DeviceId = request.DeviceId;
+                existingToken.AppVersion = request.AppVersion;
+                existingToken.IsActive = true;
+                existingToken.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Deactivate old tokens for same device
+                if (!string.IsNullOrEmpty(request.DeviceId))
                 {
-                    token.IsActive = false;
-                    token.UpdatedAt = DateTime.UtcNow;
+                    var oldTokens = await _context.UserPushTokens
+                        .Where(t => t.UserId == userIdQuery && t.DeviceId == request.DeviceId)
+                        .ToListAsync();
+
+                    foreach (var token in oldTokens)
+                    {
+                        token.IsActive = false;
+                        token.UpdatedAt = DateTime.UtcNow;
+                    }
                 }
+
+                // Add new token
+                var pushToken = new UserPushToken
+                {
+                    UserId = userIdQuery,
+                    PushToken = request.PushToken,
+                    DeviceType = request.DeviceType.ToLower(),
+                    DeviceId = request.DeviceId,
+                    AppVersion = request.AppVersion,
+                    IsActive = true
+                };
+
+                _context.UserPushTokens.Add(pushToken);
             }
 
-            // Add new token
-            var pushToken = new UserPushToken
-            {
-                UserId = userIdQuery,
-                PushToken = request.PushToken,
-                DeviceType = request.DeviceType.ToLower(),
-                DeviceId = request.DeviceId,
-                AppVersion = request.AppVersion,
-                IsActive = true
-            };
-
-            _context.UserPushTokens.Add(pushToken);
             await _context.SaveChangesAsync();
 
             return (true, "Push token registered successfully");
