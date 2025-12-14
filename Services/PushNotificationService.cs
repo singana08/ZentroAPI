@@ -206,7 +206,7 @@ public class PushNotificationService : IPushNotificationService
     {
         try
         {
-            // Get user ID from profile ID
+            // Get profile ID (same as input)
             var userIdQuery = await _context.Requesters
                 .Where(r => r.Id == profileId)
                 .Select(r => r.Id)
@@ -216,7 +216,7 @@ public class PushNotificationService : IPushNotificationService
             {
                 userIdQuery = await _context.Providers
                     .Where(p => p.Id == profileId)
-                    .Select(p => p.UserId)
+                    .Select(p => p.Id)
                     .FirstOrDefaultAsync();
             }
             
@@ -366,7 +366,11 @@ public class PushNotificationService : IPushNotificationService
             providerIds,
             "New Service Request",
             $"New {request.MainCategory} request in your area",
-            new Dictionary<string, object> { { "requestId", requestId.ToString() }, { "type", "new_request" } }
+            new Dictionary<string, object> { 
+                { "requestId", requestId.ToString() }, 
+                { "type", "new_request" },
+                { "screen", "RequestDetails" }
+            }
         );
     }
 
@@ -379,7 +383,11 @@ public class PushNotificationService : IPushNotificationService
             requesterId,
             "New Quote Received",
             $"You received a new quote for your {request.MainCategory} request",
-            new Dictionary<string, object> { { "requestId", requestId.ToString() }, { "type", "quote_received" } }
+            new Dictionary<string, object> { 
+                { "requestId", requestId.ToString() }, 
+                { "type", "quote_received" },
+                { "screen", "QuoteDetails" }
+            }
         );
     }
 
@@ -416,7 +424,11 @@ public class PushNotificationService : IPushNotificationService
             recipientId,
             "New Message",
             $"New message from {senderName}",
-            new Dictionary<string, object> { { "conversationId", conversationId.ToString() }, { "type", "new_message" } }
+            new Dictionary<string, object> { 
+                { "conversationId", conversationId.ToString() }, 
+                { "type", "new_message" },
+                { "screen", "Chat" }
+            }
         );
     }
 

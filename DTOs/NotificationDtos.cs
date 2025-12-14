@@ -135,4 +135,13 @@ public class ExpoMessage
     
     [JsonPropertyName("sound")]
     public string Sound { get; set; } = "default";
+    
+    [JsonPropertyName("channelId")]
+    public string? ChannelId { get; set; }
+    
+    [JsonPropertyName("categoryId")]
+    public string? CategoryId { get; set; }
+    
+    [JsonPropertyName("badge")]
+    public int? Badge { get; set; }
 }
