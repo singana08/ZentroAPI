@@ -153,3 +153,9 @@ public class TestNotificationRequest
     public Guid AcceptingProfileId { get; set; }
     public bool IsRequester { get; set; }
 }
+
+public class TokenStatusResponse
+{
+    public bool NeedsRegistration { get; set; }
+    public string Message { get; set; } = string.Empty;
+}

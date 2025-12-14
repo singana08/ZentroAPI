@@ -1,5 +1,6 @@
 using ZentroAPI.DTOs;
 using ZentroAPI.Services;
+using ZentroAPI.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,17 +16,70 @@ public class NotificationController : ControllerBase
     private readonly IPushNotificationService _pushNotificationService;
     private readonly ITokenService _tokenService;
     private readonly ILogger<NotificationController> _logger;
+    private readonly ApplicationDbContext _context;
 
     public NotificationController(
         INotificationService notificationService, 
         IPushNotificationService pushNotificationService,
         ITokenService tokenService,
-        ILogger<NotificationController> logger)
+        ILogger<NotificationController> logger,
+        ApplicationDbContext context)
     {
         _notificationService = notificationService;
         _pushNotificationService = pushNotificationService;
         _tokenService = tokenService;
         _logger = logger;
+        _context = context;
+    }
+
+    /// <summary>
+    /// Check if push token registration is needed
+    /// </summary>
+    [HttpGet("token-status")]
+    [Authorize]
+    [ProducesResponseType(typeof(TokenStatusResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTokenStatus([FromQuery] string? currentToken = null)
+    {
+        try
+        {
+            var (profileId, _, _) = _tokenService.ExtractTokenInfo(User);
+            if (!profileId.HasValue)
+            {
+                return Ok(new TokenStatusResponse { NeedsRegistration = true, Message = "Profile not found" });
+            }
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role))
+            {
+                return Ok(new TokenStatusResponse { NeedsRegistration = true, Message = "Role not found" });
+            }
+
+            string? storedToken = null;
+            if (role.ToLower() == "provider")
+            {
+                var provider = await _context.Providers.FindAsync(profileId.Value);
+                storedToken = provider?.PushToken;
+            }
+            else if (role.ToLower() == "requester")
+            {
+                var requester = await _context.Requesters.FindAsync(profileId.Value);
+                storedToken = requester?.PushToken;
+            }
+
+            var needsRegistration = string.IsNullOrEmpty(storedToken) || 
+                                  (!string.IsNullOrEmpty(currentToken) && storedToken != currentToken);
+
+            return Ok(new TokenStatusResponse 
+            { 
+                NeedsRegistration = needsRegistration,
+                Message = needsRegistration ? "Token registration required" : "Token is current"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking token status");
+            return Ok(new TokenStatusResponse { NeedsRegistration = true, Message = "Error checking status" });
+        }
     }
 
     /// <summary>

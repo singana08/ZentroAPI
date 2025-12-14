@@ -21,6 +21,7 @@ public class VerifyOtpResponse
     public string? Token { get; set; }
     public UserDto? User { get; set; }
     public bool IsNewUser { get; set; }
+    public bool NeedsTokenRegistration { get; set; } = true;
 }
 
 /// <summary>
@@ -32,6 +33,7 @@ public class AuthTokenResponse
     public string TokenType { get; set; } = "Bearer";
     public int ExpiresIn { get; set; }
     public UserDto User { get; set; } = new();
+    public bool NeedsTokenRegistration { get; set; } = true;
 }
 
 /// <summary>
