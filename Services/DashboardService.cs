@@ -11,11 +11,15 @@ namespace ZentroAPI.Services;
 public class DashboardService : IDashboardService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IReferralService _referralService;
+    private readonly IWalletService _walletService;
     private readonly ILogger<DashboardService> _logger;
 
-    public DashboardService(ApplicationDbContext context, ILogger<DashboardService> logger)
+    public DashboardService(ApplicationDbContext context, IReferralService referralService, IWalletService walletService, ILogger<DashboardService> logger)
     {
         _context = context;
+        _referralService = referralService;
+        _walletService = walletService;
         _logger = logger;
     }
 
@@ -76,6 +80,49 @@ public class DashboardService : IDashboardService
             var notificationCount = await _context.Notifications
                 .CountAsync(n => n.ProfileId == providerId && !n.IsRead);
 
+            // Get referral summary
+            ReferralSummaryDto? referralSummary = null;
+            if (provider.User != null)
+            {
+                try
+                {
+                    var referralResult = await _referralService.GetReferralStatsAsync(provider.User.Id);
+                    if (referralResult.Success && referralResult.Data != null)
+                    {
+                        referralSummary = new ReferralSummaryDto
+                        {
+                            ReferralCode = referralResult.Data.ReferralCode,
+                            TotalReferrals = referralResult.Data.TotalReferrals,
+                            TotalEarnings = referralResult.Data.TotalEarnings,
+                            PendingReferrals = referralResult.Data.PendingReferrals
+                        };
+                    }
+                    else
+                    {
+                        // Create basic referral summary even if service fails
+                        var codeResult = await _referralService.GetUserReferralCodeAsync(provider.User.Id);
+                        if (codeResult.Success && codeResult.Data != null)
+                        {
+                            referralSummary = new ReferralSummaryDto
+                            {
+                                ReferralCode = codeResult.Data.ReferralCode,
+                                TotalReferrals = codeResult.Data.TotalReferrals,
+                                TotalEarnings = codeResult.Data.TotalEarnings,
+                                PendingReferrals = 0
+                            };
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error getting referral data for provider {ProviderId}", providerId);
+                    // Don't fail dashboard if referral service fails
+                }
+            }
+            
+            _logger.LogInformation($"Dashboard referral summary for provider {providerId}: {(referralSummary != null ? "Found" : "Null")}");
+            }
+
             var response = new ProviderDashboardResponseDto
             {
                 TodayEarnings = todayEarnings,
@@ -83,7 +130,8 @@ public class DashboardService : IDashboardService
                 Rating = rating,
                 CompletionRate = completionRate,
                 NotificationCount = notificationCount,
-                UserName = provider.User?.FullName ?? "Provider"
+                UserName = provider.User?.FullName ?? "Provider",
+                ReferralSummary = referralSummary
             };
 
             return (true, "Dashboard data retrieved successfully", response);
@@ -158,6 +206,69 @@ public class DashboardService : IDashboardService
                 })
                 .ToListAsync();
 
+            // Get referral summary
+            ReferralSummaryDto? referralSummary = null;
+            WalletSummaryDto? walletSummary = null;
+            if (requester.User != null)
+            {
+                try
+                {
+                    var referralResult = await _referralService.GetReferralStatsAsync(requester.User.Id);
+                    if (referralResult.Success && referralResult.Data != null)
+                    {
+                        referralSummary = new ReferralSummaryDto
+                        {
+                            ReferralCode = referralResult.Data.ReferralCode,
+                            TotalReferrals = referralResult.Data.TotalReferrals,
+                            TotalEarnings = referralResult.Data.TotalEarnings,
+                            PendingReferrals = referralResult.Data.PendingReferrals
+                        };
+                    }
+                    else
+                    {
+                        var codeResult = await _referralService.GetUserReferralCodeAsync(requester.User.Id);
+                        if (codeResult.Success && codeResult.Data != null)
+                        {
+                            referralSummary = new ReferralSummaryDto
+                            {
+                                ReferralCode = codeResult.Data.ReferralCode,
+                                TotalReferrals = codeResult.Data.TotalReferrals,
+                                TotalEarnings = codeResult.Data.TotalEarnings,
+                                PendingReferrals = 0
+                            };
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error getting referral data for requester {RequesterId}", requesterId);
+                }
+
+                try
+                {
+                    var walletResult = await _walletService.GetWalletAsync(requester.User.Id);
+                    if (walletResult.Success && walletResult.Data != null)
+                    {
+                        var expiringCredits = walletResult.Data.RecentTransactions
+                            .Where(t => t.Type == "Credit" && t.ExpiresAt.HasValue && t.ExpiresAt.Value <= DateTime.UtcNow.AddDays(7))
+                            .ToList();
+                        
+                        walletSummary = new WalletSummaryDto
+                        {
+                            Balance = walletResult.Data.Balance,
+                            ExpiringCredits = expiringCredits.Count,
+                            ExpiringAmount = expiringCredits.Sum(t => t.Amount)
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error getting wallet data for requester {RequesterId}", requesterId);
+                }
+            }
+            
+            _logger.LogInformation($"Dashboard data for requester {requesterId}: Referral={referralSummary != null}, Wallet={walletSummary != null}");
+
             var response = new RequesterDashboardResponseDto
             {
                 UserName = requester.User?.FullName ?? "Requester",
@@ -165,7 +276,9 @@ public class DashboardService : IDashboardService
                 CompletedServices = completedRequests,
                 TotalSpent = totalSpent,
                 SavedAmount = savedAmount,
-                ScheduledServices = scheduledServices
+                ScheduledServices = scheduledServices,
+                ReferralSummary = referralSummary,
+                WalletSummary = walletSummary
             };
 
             return (true, "Dashboard data retrieved successfully", response);

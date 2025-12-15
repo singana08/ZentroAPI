@@ -299,6 +299,16 @@ public class AuthService : IAuthService
             // Generate JWT token with active role and profile ID
             var token = _jwtService.GenerateToken(existingUser, activeRole, profileId);
 
+            // Handle referral code if provided
+            if (!string.IsNullOrWhiteSpace(request.ReferralCode))
+            {
+                var referralResult = await _referralService.UseReferralCodeAsync(existingUser.Id, request.ReferralCode);
+                if (!referralResult.Success)
+                {
+                    _logger.LogWarning($"Referral code application failed for user {existingUser.Id}: {referralResult.Message}");
+                }
+            }
+
             // Send welcome email
             await _emailService.SendWelcomeEmailAsync(
                 existingUser.Email,

@@ -54,6 +54,10 @@ public class RegisterRequest
 
     // Provider-specific fields (required if Role is Provider)
     public string[]? ServiceCategories { get; set; }
+
+    // Referral code (optional)
+    [StringLength(10, ErrorMessage = "Referral code must not exceed 10 characters")]
+    public string? ReferralCode { get; set; }
 }
 
 public enum UserRoleDto

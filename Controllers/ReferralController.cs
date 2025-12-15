@@ -21,42 +21,6 @@ public class ReferralController : ControllerBase
     }
 
     /// <summary>
-    /// Get user's referral code and basic stats
-    /// </summary>
-    [HttpGet("code")]
-    public async Task<IActionResult> GetReferralCode()
-    {
-        var userIdString = User.GetUserId();
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized("User ID not found in token");
-
-        var result = await _referralService.GetUserReferralCodeAsync(userId);
-        
-        if (!result.Success)
-            return BadRequest(result.Message);
-
-        return Ok(result.Data);
-    }
-
-    /// <summary>
-    /// Apply a referral code (only for new users)
-    /// </summary>
-    [HttpPost("use")]
-    public async Task<IActionResult> UseReferralCode([FromBody] UseReferralCodeRequest request)
-    {
-        var userIdString = User.GetUserId();
-        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            return Unauthorized("User ID not found in token");
-
-        var result = await _referralService.UseReferralCodeAsync(userId, request.ReferralCode);
-        
-        if (!result.Success)
-            return BadRequest(result.Message);
-
-        return Ok(new { message = result.Message });
-    }
-
-    /// <summary>
     /// Get detailed referral statistics
     /// </summary>
     [HttpGet("stats")]
