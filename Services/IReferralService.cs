@@ -8,4 +8,7 @@ public interface IReferralService
     Task<(bool Success, string Message)> UseReferralCodeAsync(Guid userId, string referralCode);
     Task<(bool Success, string Message, ReferralStatsDto? Data)> GetReferralStatsAsync(Guid userId);
     Task ProcessReferralCompletionAsync(Guid userId);
+    Task ProcessFirstBookingBonusAsync(Guid bookingUserId, Guid bookingId, decimal bookingAmount);
+    Task<decimal> GetReferralDiscountAsync(Guid userId);
+    Task UseReferralDiscountAsync(Guid userId);
 }

@@ -25,6 +25,19 @@ public class ReferralStatsDto
     public decimal TotalEarnings { get; set; }
     public decimal PendingEarnings { get; set; }
     public List<ReferralDto> RecentReferrals { get; set; } = [];
+    public ReferralTermsDto Terms { get; set; } = new();
+}
+
+public class ReferralTermsDto
+{
+    public string ReferrerBenefit { get; set; } = "Earn 10% of friend's first booking (max ₹100)";
+    public string ReferredBenefit { get; set; } = "Get 50% off platform fee on first 3 bookings";
+    public List<string> Conditions { get; set; } = [
+        "Rewards credited within 24 hours of booking completion",
+        "Minimum booking value ₹200 required", 
+        "Self-referrals not allowed",
+        "Terms subject to change"
+    ];
 }
 
 public class ReferralDto

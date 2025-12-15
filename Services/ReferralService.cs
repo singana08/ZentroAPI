@@ -120,28 +120,15 @@ public class ReferralService : IReferralService
     {
         try
         {
-            // Find pending referrals where this user was referred
+            // Just mark referral as active - bonus will be given after first booking
             var pendingReferrals = await _context.Set<Referral>()
                 .Where(r => r.ReferredUserId == userId && r.Status == ReferralStatus.Pending)
                 .ToListAsync();
 
             foreach (var referral in pendingReferrals)
             {
-                // Add credit to referrer's wallet
-                var creditResult = await _walletService.AddCreditAsync(
-                    referral.ReferrerId,
-                    referral.BonusAmount,
-                    TransactionSource.ReferralBonus,
-                    $"Referral bonus for {userId}",
-                    referral.Id,
-                    DateTime.UtcNow.AddDays(60) // 60-day expiry
-                );
-
-                if (creditResult.Success)
-                {
-                    referral.Status = ReferralStatus.Completed;
-                    referral.CompletedAt = DateTime.UtcNow;
-                }
+                referral.Status = ReferralStatus.Completed;
+                referral.CompletedAt = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync();
@@ -149,6 +136,86 @@ public class ReferralService : IReferralService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing referral completion for user {UserId}", userId);
+        }
+    }
+
+    public async Task ProcessFirstBookingBonusAsync(Guid bookingUserId, Guid bookingId, decimal bookingAmount)
+    {
+        try
+        {
+            // Minimum booking value ₹200 required
+            if (bookingAmount < 200m)
+                return;
+
+            var referral = await _context.Set<Referral>()
+                .FirstOrDefaultAsync(r => r.ReferredUserId == bookingUserId && r.Status == ReferralStatus.Completed && r.FirstBookingId == null);
+
+            if (referral != null)
+            {
+                // Calculate 10% bonus, max ₹100
+                var bonusAmount = Math.Min(bookingAmount * 0.1m, 100m);
+                
+                // Add credit to referrer's wallet (credited within 24 hours)
+                var creditResult = await _walletService.AddCreditAsync(
+                    referral.ReferrerId,
+                    bonusAmount,
+                    TransactionSource.ReferralBonus,
+                    $"Referral bonus from first booking",
+                    referral.Id,
+                    DateTime.UtcNow.AddDays(60)
+                );
+
+                if (creditResult.Success)
+                {
+                    referral.BonusAmount = bonusAmount;
+                    referral.FirstBookingId = bookingId;
+                    await _context.SaveChangesAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing first booking bonus for user {UserId}", bookingUserId);
+        }
+    }
+
+    public async Task<decimal> GetReferralDiscountAsync(Guid userId)
+    {
+        try
+        {
+            var referral = await _context.Set<Referral>()
+                .FirstOrDefaultAsync(r => r.ReferredUserId == userId && r.Status == ReferralStatus.Completed);
+
+            if (referral != null && referral.ReferredUserBookingsUsed < 3)
+            {
+                return 0.5m; // 50% off platform fee
+            }
+
+            return 0m;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting referral discount for user {UserId}", userId);
+            return 0m;
+        }
+    }
+
+    public async Task UseReferralDiscountAsync(Guid userId)
+    {
+        try
+        {
+            var referral = await _context.Set<Referral>()
+                .FirstOrDefaultAsync(r => r.ReferredUserId == userId && r.Status == ReferralStatus.Completed);
+
+            if (referral != null && referral.ReferredUserBookingsUsed < 3)
+            {
+                referral.ReferredUserBookingsUsed++;
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error using referral discount for user {UserId}", userId);
         }
     }
 
@@ -168,7 +235,7 @@ public class ReferralService : IReferralService
             ReferredUserName = r.ReferredUser.FullName,
             ReferredUserEmail = r.ReferredUser.Email,
             Status = r.Status.ToString(),
-            BonusAmount = r.BonusAmount,
+            BonusAmount = r.BonusAmount ?? 0,
             CreatedAt = r.CreatedAt,
             CompletedAt = r.CompletedAt
         }).ToList();
@@ -179,9 +246,10 @@ public class ReferralService : IReferralService
             TotalReferrals = referrals.Count,
             PendingReferrals = referrals.Count(r => r.Status == ReferralStatus.Pending),
             CompletedReferrals = referrals.Count(r => r.Status == ReferralStatus.Completed),
-            TotalEarnings = referrals.Where(r => r.Status == ReferralStatus.Completed).Sum(r => r.BonusAmount),
-            PendingEarnings = referrals.Where(r => r.Status == ReferralStatus.Pending).Sum(r => r.BonusAmount),
-            RecentReferrals = recentReferrals
+            TotalEarnings = referrals.Where(r => r.Status == ReferralStatus.Completed && r.BonusAmount.HasValue).Sum(r => r.BonusAmount ?? 0),
+            PendingEarnings = 0, // Earnings only after first booking
+            RecentReferrals = recentReferrals,
+            Terms = new ReferralTermsDto()
         };
     }
 

@@ -666,7 +666,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ReferredUserId).IsRequired();
             entity.Property(e => e.ReferralCode).IsRequired().HasMaxLength(10);
             entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasDefaultValue(ReferralStatus.Pending);
-            entity.Property(e => e.BonusAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(50);
+            entity.Property(e => e.BonusAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.ReferredUserBookingsUsed).HasDefaultValue(0);
             entity.Property(e => e.CreatedAt).IsRequired();
             
             entity.HasIndex(e => new { e.ReferrerId, e.ReferredUserId }).IsUnique();

@@ -27,8 +27,11 @@ public class Referral
     [Required]
     public ReferralStatus Status { get; set; } = ReferralStatus.Pending;
 
-    [Required]
-    public decimal BonusAmount { get; set; } = 50; // Fixed ₹50
+    public decimal? BonusAmount { get; set; } // 10% of first booking, max ₹100
+
+    public Guid? FirstBookingId { get; set; } // Track first booking
+
+    public int ReferredUserBookingsUsed { get; set; } = 0; // Track discount usage
 
     public DateTime? CompletedAt { get; set; }
 
