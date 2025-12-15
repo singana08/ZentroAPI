@@ -32,6 +32,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserPushToken> UserPushTokens => Set<UserPushToken>();
     public DbSet<NotificationPreferences> NotificationPreferences => Set<NotificationPreferences>();
     public DbSet<PushNotificationLog> PushNotificationLogs => Set<PushNotificationLog>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+    public DbSet<Referral> Referrals => Set<Referral>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -58,6 +61,8 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PhoneNumber)
                 .IsUnique()
                 .HasFilter("\"PhoneNumber\" IS NOT NULL AND \"PhoneNumber\" != ''");
+            entity.HasIndex(e => e.ReferralCode).IsUnique()
+                .HasFilter("\"ReferralCode\" IS NOT NULL");
         });
 
         // Requester configuration
@@ -596,6 +601,98 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(pnl => pnl.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // User self-referencing relationship for referrals
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.ReferredBy)
+            .WithMany(u => u.ReferredUsers)
+            .HasForeignKey(u => u.ReferredById)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Wallet configuration
+        modelBuilder.Entity<Wallet>(entity =>
+        {
+            entity.ToTable("wallets");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Balance).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // Wallet relationships
+        modelBuilder.Entity<Wallet>()
+            .HasOne(w => w.User)
+            .WithOne(u => u.Wallet)
+            .HasForeignKey<Wallet>(w => w.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // WalletTransaction configuration
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.ToTable("wallet_transactions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.WalletId).IsRequired();
+            entity.Property(e => e.Type).IsRequired().HasConversion<string>();
+            entity.Property(e => e.Source).IsRequired().HasConversion<string>();
+            entity.Property(e => e.Amount).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.BalanceAfter).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => e.WalletId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // WalletTransaction relationships
+        modelBuilder.Entity<WalletTransaction>()
+            .HasOne(wt => wt.Wallet)
+            .WithMany(w => w.Transactions)
+            .HasForeignKey(wt => wt.WalletId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Referral configuration
+        modelBuilder.Entity<Referral>(entity =>
+        {
+            entity.ToTable("referrals");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ReferrerId).IsRequired();
+            entity.Property(e => e.ReferredUserId).IsRequired();
+            entity.Property(e => e.ReferralCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Status).IsRequired().HasConversion<string>().HasDefaultValue(ReferralStatus.Pending);
+            entity.Property(e => e.BonusAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(50);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            
+            entity.HasIndex(e => new { e.ReferrerId, e.ReferredUserId }).IsUnique();
+            entity.HasIndex(e => e.ReferrerId);
+            entity.HasIndex(e => e.ReferredUserId);
+            entity.HasIndex(e => e.Status);
+        });
+
+        // Referral relationships
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.Referrer)
+            .WithMany(u => u.ReferralsMade)
+            .HasForeignKey(r => r.ReferrerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.ReferredUser)
+            .WithMany(u => u.ReferralsReceived)
+            .HasForeignKey(r => r.ReferredUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.WalletTransaction)
+            .WithMany()
+            .HasForeignKey(r => r.WalletTransactionId)
+            .OnDelete(DeleteBehavior.SetNull);
 
     }
 }

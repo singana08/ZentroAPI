@@ -1,0 +1,34 @@
+### Referral System API Tests
+### Base URL: https://localhost:5001 or your deployed URL
+
+### 1. Get Referral Code (requires authentication)
+GET {{baseUrl}}/api/referral/code
+Authorization: Bearer {{token}}
+
+### 2. Apply Referral Code (requires authentication)
+POST {{baseUrl}}/api/referral/use
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "referralCode": "ABC12345"
+}
+
+### 3. Get Referral Statistics (requires authentication)
+GET {{baseUrl}}/api/referral/stats
+Authorization: Bearer {{token}}
+
+### 4. Get Wallet Information (requires authentication)
+GET {{baseUrl}}/api/referral/wallet
+Authorization: Bearer {{token}}
+
+### Variables (replace with actual values)
+@baseUrl = https://localhost:5001
+@token = your_jwt_token_here
+
+### Test Flow:
+### 1. Register User A and get their referral code
+### 2. Register User B using User A's referral code
+### 3. Complete User B's profile (this triggers referral completion)
+### 4. Check User A's wallet for the ₹50 bonus
+### 5. Verify referral statistics show the completed referral

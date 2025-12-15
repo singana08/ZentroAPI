@@ -47,8 +47,18 @@ public class User
     [StringLength(20)]
     public string DefaultRole { get; set; } = "REQUESTER";
 
+    [StringLength(10)]
+    public string? ReferralCode { get; set; }
+
+    public Guid? ReferredById { get; set; }
+
     // Navigation properties
     public Requester? RequesterProfile { get; set; }
     public Provider? ProviderProfile { get; set; }
     public ICollection<OtpRecord> OtpRecords { get; set; } = [];
+    public Wallet? Wallet { get; set; }
+    public User? ReferredBy { get; set; }
+    public ICollection<User> ReferredUsers { get; set; } = [];
+    public ICollection<Referral> ReferralsMade { get; set; } = [];
+    public ICollection<Referral> ReferralsReceived { get; set; } = [];
 }

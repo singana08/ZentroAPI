@@ -13,6 +13,7 @@ public class AuthService : IAuthService
     private readonly IOtpService _otpService;
     private readonly IEmailService _emailService;
     private readonly IJwtService _jwtService;
+    private readonly IReferralService _referralService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -20,12 +21,14 @@ public class AuthService : IAuthService
         IOtpService otpService,
         IEmailService emailService,
         IJwtService jwtService,
+        IReferralService referralService,
         ILogger<AuthService> logger)
     {
         _context = context;
         _otpService = otpService;
         _emailService = emailService;
         _jwtService = jwtService;
+        _referralService = referralService;
         _logger = logger;
     }
 
@@ -301,6 +304,9 @@ public class AuthService : IAuthService
                 existingUser.Email,
                 existingUser.FullName,
                 activeRole);
+
+            // Process referral completion (if user was referred)
+            await _referralService.ProcessReferralCompletionAsync(existingUser.Id);
 
             _logger.LogInformation($"User profile completed: {existingUser.Email} as {activeRole}");
             return (true, "Profile registered successfully", token, MapToUserDto(existingUser, profileId));
