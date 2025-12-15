@@ -118,10 +118,9 @@ public class DashboardService : IDashboardService
                     _logger.LogError(ex, "Error getting referral data for provider {ProviderId}", providerId);
                     // Don't fail dashboard if referral service fails
                 }
-            }
-            
+            }            
             _logger.LogInformation($"Dashboard referral summary for provider {providerId}: {(referralSummary != null ? "Found" : "Null")}");
-            }
+            
 
             var response = new ProviderDashboardResponseDto
             {
