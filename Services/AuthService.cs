@@ -252,6 +252,12 @@ public class AuthService : IAuthService
             string defaultRoleText = roleText;
             existingUser.DefaultRole = defaultRoleText;
             existingUser.UpdatedAt = DateTime.UtcNow;
+            
+            // Generate referral code if not exists
+            if (string.IsNullOrEmpty(existingUser.ReferralCode))
+            {
+                existingUser.ReferralCode = GenerateReferralCode();
+            }
 
             // Handle role creation based on request
             string activeRole = "REQUESTER";
@@ -751,5 +757,12 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "Error during logout");
             return (false, "Error during logout");
         }
+    }
+
+    private string GenerateReferralCode()
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, 8).Select(s => s[random.Next(s.Length)]).ToArray());
     }
 }
