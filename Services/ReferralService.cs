@@ -102,17 +102,33 @@ public class ReferralService : IReferralService
     {
         try
         {
+            _logger.LogInformation("Getting referral stats for user {UserId}", userId);
+            
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found", userId);
                 return (false, "User not found", null);
+            }
+
+            _logger.LogInformation("User found: {Email}, ReferralCode: {Code}", user.Email, user.ReferralCode ?? "NULL");
+
+            // Generate referral code if not exists
+            if (string.IsNullOrEmpty(user.ReferralCode))
+            {
+                user.ReferralCode = GenerateReferralCode();
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Generated new referral code: {Code}", user.ReferralCode);
+            }
 
             var stats = await GetReferralStatsInternal(userId);
+            _logger.LogInformation("Referral stats retrieved successfully for user {UserId}", userId);
             return (true, "Referral stats retrieved successfully", stats);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting referral stats for user {UserId}", userId);
-            return (false, "Failed to get referral stats", null);
+            _logger.LogError(ex, "Error getting referral stats for user {UserId}: {Message}", userId, ex.Message);
+            return (false, $"Failed to get referral stats: {ex.Message}", null);
         }
     }
 
