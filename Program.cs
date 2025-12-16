@@ -231,7 +231,7 @@ builder.Services.AddScoped<IProviderMatchingService, ProviderMatchingService>();
 builder.Services.AddScoped<IProviderService, ProviderService>();
 builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
-builder.Services.AddScoped<IReferralService, ReferralService>();
+builder.Services.AddScoped<IReferralService, SimpleReferralService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddHostedService<ReferralBackgroundService>();
 builder.Services.AddHttpClient<NotificationService>();

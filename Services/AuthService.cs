@@ -299,27 +299,26 @@ public class AuthService : IAuthService
                 activeRole = "REQUESTER";
             }
 
+            // Handle referral code if provided
+            if (!string.IsNullOrWhiteSpace(request.ReferralCode))
+            {
+                var referrer = await _context.Users.FirstOrDefaultAsync(u => u.ReferralCode == request.ReferralCode);
+                if (referrer != null && referrer.Id != existingUser.Id)
+                {
+                    existingUser.ReferredById = referrer.Id;
+                    _logger.LogInformation($"User {existingUser.Id} referred by {referrer.Id} using code {request.ReferralCode}");
+                }
+                else
+                {
+                    _logger.LogWarning($"Invalid referral code {request.ReferralCode} for user {existingUser.Id}");
+                }
+            }
+
             _context.Users.Update(existingUser);
             await _context.SaveChangesAsync();
 
             // Generate JWT token with active role and profile ID
             var token = _jwtService.GenerateToken(existingUser, activeRole, profileId);
-
-            // Handle referral code if provided
-            if (!string.IsNullOrWhiteSpace(request.ReferralCode))
-            {
-                _logger.LogInformation($"Processing referral code {request.ReferralCode} for user {existingUser.Id}");
-                var referralResult = await _referralService.UseReferralCodeAsync(existingUser.Id, request.ReferralCode);
-                if (!referralResult.Success)
-                {
-                    _logger.LogError($"Referral code application failed for user {existingUser.Id}: {referralResult.Message}");
-                    // Don't fail registration, just log the error
-                }
-                else
-                {
-                    _logger.LogInformation($"Referral code {request.ReferralCode} applied successfully for user {existingUser.Id}");
-                }
-            }
 
             // Send welcome email
             await _emailService.SendWelcomeEmailAsync(
