@@ -237,36 +237,54 @@ public class ReferralService : IReferralService
 
     private async Task<ReferralStatsDto> GetReferralStatsInternal(Guid userId)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        
-        var referrals = await _context.Set<Referral>()
-            .Include(r => r.ReferredUser)
-            .Where(r => r.ReferrerId == userId)
-            .OrderByDescending(r => r.CreatedAt)
-            .ToListAsync();
-
-        var recentReferrals = referrals.Take(10).Select(r => new ReferralDto
+        try
         {
-            Id = r.Id,
-            ReferredUserName = r.ReferredUser.FullName,
-            ReferredUserEmail = r.ReferredUser.Email,
-            Status = r.Status.ToString(),
-            BonusAmount = r.BonusAmount ?? 0,
-            CreatedAt = r.CreatedAt,
-            CompletedAt = r.CompletedAt
-        }).ToList();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
-        return new ReferralStatsDto
+            // Get all referrals made by this user
+            var referrals = await _context.Set<Referral>()
+                .Where(r => r.ReferrerId == userId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+
+            // Get recent referrals with user details (only for display)
+            var recentReferrals = new List<ReferralDto>();
+            if (referrals.Any())
+            {
+                var recentReferralIds = referrals.Take(10).Select(r => r.ReferredUserId).ToList();
+                var referredUsers = await _context.Users
+                    .Where(u => recentReferralIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u);
+
+                recentReferrals = referrals.Take(10).Select(r => new ReferralDto
+                {
+                    Id = r.Id,
+                    ReferredUserName = referredUsers.ContainsKey(r.ReferredUserId) ? referredUsers[r.ReferredUserId].FullName : "Unknown",
+                    ReferredUserEmail = referredUsers.ContainsKey(r.ReferredUserId) ? referredUsers[r.ReferredUserId].Email : "Unknown",
+                    Status = r.Status.ToString(),
+                    BonusAmount = r.BonusAmount ?? 0,
+                    CreatedAt = r.CreatedAt,
+                    CompletedAt = r.CompletedAt
+                }).ToList();
+            }
+
+            return new ReferralStatsDto
+            {
+                ReferralCode = user?.ReferralCode ?? "",
+                TotalReferrals = referrals.Count,
+                PendingReferrals = referrals.Count(r => r.Status == ReferralStatus.Pending),
+                CompletedReferrals = referrals.Count(r => r.Status == ReferralStatus.Completed),
+                TotalEarnings = referrals.Where(r => r.Status == ReferralStatus.Completed && r.BonusAmount.HasValue).Sum(r => r.BonusAmount ?? 0),
+                PendingEarnings = 0, // Earnings only after first booking
+                RecentReferrals = recentReferrals,
+                Terms = new ReferralTermsDto()
+            };
+        }
+        catch (Exception ex)
         {
-            ReferralCode = user?.ReferralCode ?? "",
-            TotalReferrals = referrals.Count,
-            PendingReferrals = referrals.Count(r => r.Status == ReferralStatus.Pending),
-            CompletedReferrals = referrals.Count(r => r.Status == ReferralStatus.Completed),
-            TotalEarnings = referrals.Where(r => r.Status == ReferralStatus.Completed && r.BonusAmount.HasValue).Sum(r => r.BonusAmount ?? 0),
-            PendingEarnings = 0, // Earnings only after first booking
-            RecentReferrals = recentReferrals,
-            Terms = new ReferralTermsDto()
-        };
+            _logger.LogError(ex, "Error getting referral stats for user {UserId}", userId);
+            throw;
+        }
     }
 
     private string GenerateReferralCode()
