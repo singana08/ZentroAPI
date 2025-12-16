@@ -308,10 +308,16 @@ public class AuthService : IAuthService
             // Handle referral code if provided
             if (!string.IsNullOrWhiteSpace(request.ReferralCode))
             {
+                _logger.LogInformation($"Processing referral code {request.ReferralCode} for user {existingUser.Id}");
                 var referralResult = await _referralService.UseReferralCodeAsync(existingUser.Id, request.ReferralCode);
                 if (!referralResult.Success)
                 {
-                    _logger.LogWarning($"Referral code application failed for user {existingUser.Id}: {referralResult.Message}");
+                    _logger.LogError($"Referral code application failed for user {existingUser.Id}: {referralResult.Message}");
+                    // Don't fail registration, just log the error
+                }
+                else
+                {
+                    _logger.LogInformation($"Referral code {request.ReferralCode} applied successfully for user {existingUser.Id}");
                 }
             }
 
