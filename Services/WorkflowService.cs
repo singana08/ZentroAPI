@@ -12,11 +12,13 @@ public class WorkflowService : IWorkflowService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<WorkflowService> _logger;
+    private readonly IReferralService _referralService;
 
-    public WorkflowService(ApplicationDbContext context, ILogger<WorkflowService> logger)
+    public WorkflowService(ApplicationDbContext context, ILogger<WorkflowService> logger, IReferralService referralService)
     {
         _context = context;
         _logger = logger;
+        _referralService = referralService;
     }
 
     public async Task<(bool Success, string Message, WorkflowStatusResponseDto? Data)> UpdateWorkflowStatusAsync(
@@ -99,6 +101,26 @@ public class WorkflowService : IWorkflowService
             }
 
             await _context.SaveChangesAsync();
+
+            // Process referral bonus if job is completed
+            if (status.ToLower() == "completed" && serviceRequest != null)
+            {
+                try
+                {
+                    // Get quote amount for this request
+                    var quote = await _context.Quotes
+                        .FirstOrDefaultAsync(q => q.RequestId == requestId && q.ProviderId == providerId);
+                    
+                    if (quote != null)
+                    {
+                        await _referralService.ProcessFirstBookingBonusAsync(serviceRequest.RequesterId, requestId, quote.Price);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing referral bonus for completed request {RequestId}", requestId);
+                }
+            }
 
             var responseDto = MapToResponseDto(workflowStatus);
             return (true, "Workflow status updated successfully", responseDto);
