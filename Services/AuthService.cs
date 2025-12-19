@@ -14,7 +14,7 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly IJwtService _jwtService;
     private readonly IReferralService _referralService;
-    private readonly IBiometricService _biometricService;
+    private readonly IBiometricService? _biometricService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -23,7 +23,7 @@ public class AuthService : IAuthService
         IEmailService emailService,
         IJwtService jwtService,
         IReferralService referralService,
-        IBiometricService biometricService,
+        IBiometricService? biometricService,
         ILogger<AuthService> logger)
     {
         _context = context;
@@ -771,6 +771,9 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (_biometricService == null)
+                return (false, "Biometric service not available", null, null);
+                
             var pin = await _biometricService.GenerateBiometricPinAsync(userId);
             var user = await _context.Users.FindAsync(userId);
             
@@ -787,6 +790,9 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (_biometricService == null)
+                return (false, "Biometric service not available", null, null);
+                
             var isValid = await _biometricService.ValidateBiometricPinAsync(biometricPin);
             if (!isValid)
             {
@@ -834,6 +840,9 @@ public class AuthService : IAuthService
     {
         try
         {
+            if (_biometricService == null)
+                return (false, "Biometric service not available");
+                
             var result = await _biometricService.DisableBiometricAsync(userId);
             return result ? (true, "Biometric authentication disabled") : (false, "Failed to disable biometric");
         }
