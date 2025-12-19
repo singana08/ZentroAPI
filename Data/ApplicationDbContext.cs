@@ -63,6 +63,8 @@ public class ApplicationDbContext : DbContext
                 .HasFilter("\"PhoneNumber\" IS NOT NULL AND \"PhoneNumber\" != ''");
             entity.HasIndex(e => e.ReferralCode).IsUnique()
                 .HasFilter("\"ReferralCode\" IS NOT NULL");
+            entity.HasIndex(e => e.BiometricPin)
+                .HasFilter("\"BiometricPin\" IS NOT NULL");
         });
 
         // Requester configuration

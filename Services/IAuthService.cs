@@ -58,4 +58,19 @@ public interface IAuthService
     /// Logout and revoke refresh token
     /// </summary>
     Task<(bool Success, string Message)> LogoutAsync(string refreshToken);
+
+    /// <summary>
+    /// Enable biometric authentication for user
+    /// </summary>
+    Task<(bool Success, string Message, string? BiometricPin, DateTime? ExpiresAt)> EnableBiometricAsync(Guid userId);
+
+    /// <summary>
+    /// Login using biometric PIN
+    /// </summary>
+    Task<(bool Success, string Message, string? Token, UserDto? User)> BiometricLoginAsync(string biometricPin);
+
+    /// <summary>
+    /// Disable biometric authentication for user
+    /// </summary>
+    Task<(bool Success, string Message)> DisableBiometricAsync(Guid userId);
 }

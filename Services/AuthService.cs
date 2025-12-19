@@ -14,6 +14,7 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly IJwtService _jwtService;
     private readonly IReferralService _referralService;
+    private readonly IBiometricService _biometricService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -22,6 +23,7 @@ public class AuthService : IAuthService
         IEmailService emailService,
         IJwtService jwtService,
         IReferralService referralService,
+        IBiometricService biometricService,
         ILogger<AuthService> logger)
     {
         _context = context;
@@ -29,6 +31,7 @@ public class AuthService : IAuthService
         _emailService = emailService;
         _jwtService = jwtService;
         _referralService = referralService;
+        _biometricService = biometricService;
         _logger = logger;
     }
 
@@ -762,6 +765,91 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "Error during logout");
             return (false, "Error during logout");
         }
+    }
+
+    public async Task<(bool Success, string Message, string? BiometricPin, DateTime? ExpiresAt)> EnableBiometricAsync(Guid userId)
+    {
+        try
+        {
+            var pin = await _biometricService.GenerateBiometricPinAsync(userId);
+            var user = await _context.Users.FindAsync(userId);
+            
+            return (true, "Biometric authentication enabled successfully", pin, user?.BiometricPinExpiresAt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enabling biometric for user {UserId}", userId);
+            return (false, "Failed to enable biometric authentication", null, null);
+        }
+    }
+
+    public async Task<(bool Success, string Message, string? Token, UserDto? User)> BiometricLoginAsync(string biometricPin)
+    {
+        try
+        {
+            var isValid = await _biometricService.ValidateBiometricPinAsync(biometricPin);
+            if (!isValid)
+            {
+                return (false, "Invalid or expired biometric PIN", null, null);
+            }
+
+            var hashedPin = HashPin(biometricPin);
+            var user = await _context.Users
+                .Include(u => u.RequesterProfile)
+                .Include(u => u.ProviderProfile)
+                .FirstOrDefaultAsync(u => u.BiometricPin == hashedPin && u.BiometricEnabled);
+
+            if (user == null)
+            {
+                return (false, "User not found", null, null);
+            }
+
+            // Generate JWT token with user's default role
+            string activeRole = user.DefaultRole ?? "REQUESTER";
+            Guid profileId = Guid.Empty;
+            
+            if (activeRole == "PROVIDER" && user.ProviderProfile != null)
+            {
+                profileId = user.ProviderProfile.Id;
+            }
+            else if (user.RequesterProfile != null)
+            {
+                profileId = user.RequesterProfile.Id;
+            }
+
+            var token = _jwtService.GenerateToken(user, activeRole, profileId);
+            var userDto = MapToUserDto(user, profileId);
+
+            _logger.LogInformation("Biometric login successful for user {UserId}", user.Id);
+            return (true, "Biometric login successful", token, userDto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during biometric login");
+            return (false, "Biometric login failed", null, null);
+        }
+    }
+
+    public async Task<(bool Success, string Message)> DisableBiometricAsync(Guid userId)
+    {
+        try
+        {
+            var result = await _biometricService.DisableBiometricAsync(userId);
+            return result ? (true, "Biometric authentication disabled") : (false, "Failed to disable biometric");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error disabling biometric for user {UserId}", userId);
+            return (false, "Failed to disable biometric authentication");
+        }
+    }
+
+    private string HashPin(string pin)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(pin);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
     }
 
     private string GenerateReferralCode()

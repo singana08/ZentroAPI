@@ -411,17 +411,88 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Test token parsing without authentication
+    /// Enable biometric authentication for current user
     /// </summary>
-    [HttpGet("test-token")]
-    [AllowAnonymous]
-    public IActionResult TestToken()
+    [HttpPost("enable-biometric")]
+    [Authorize]
+    [ProducesResponseType(typeof(EnableBiometricResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EnableBiometric()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        return Ok(new { 
-            AuthHeader = authHeader,
-            HasBearer = authHeader?.StartsWith("Bearer ") == true,
-            TokenLength = authHeader?.Replace("Bearer ", "").Length
+        var userId = User.FindFirst("user_id")?.Value;
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var guidId))
+        {
+            return Unauthorized(new ErrorResponse { Message = "Invalid token" });
+        }
+
+        var (success, message, pin, expiresAt) = await _authService.EnableBiometricAsync(guidId);
+        
+        if (!success)
+        {
+            return BadRequest(new ErrorResponse { Message = message });
+        }
+
+        return Ok(new EnableBiometricResponse
+        {
+            Success = true,
+            Message = message,
+            BiometricPin = pin!,
+            ExpiresAt = expiresAt!.Value
         });
+    }
+
+    /// <summary>
+    /// Login using biometric PIN
+    /// </summary>
+    [HttpPost("biometric-login")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(BiometricLoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BiometricLogin([FromBody] BiometricLoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.BiometricPin))
+        {
+            return BadRequest(new ErrorResponse { Message = "Biometric PIN is required" });
+        }
+
+        var (success, message, token, user) = await _authService.BiometricLoginAsync(request.BiometricPin);
+        
+        if (!success)
+        {
+            return BadRequest(new ErrorResponse { Message = message });
+        }
+
+        return Ok(new BiometricLoginResponse
+        {
+            Success = true,
+            Message = message,
+            Token = token!,
+            User = user
+        });
+    }
+
+    /// <summary>
+    /// Disable biometric authentication for current user
+    /// </summary>
+    [HttpPost("disable-biometric")]
+    [Authorize]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DisableBiometric()
+    {
+        var userId = User.FindFirst("user_id")?.Value;
+        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var guidId))
+        {
+            return Unauthorized(new ErrorResponse { Message = "Invalid token" });
+        }
+
+        var (success, message) = await _authService.DisableBiometricAsync(guidId);
+        
+        if (!success)
+        {
+            return BadRequest(new ErrorResponse { Message = message });
+        }
+
+        return Ok(new { Success = true, Message = message });
     }
 }

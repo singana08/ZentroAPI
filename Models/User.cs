@@ -61,4 +61,10 @@ public class User
     public ICollection<User> ReferredUsers { get; set; } = [];
     public ICollection<Referral> ReferralsMade { get; set; } = [];
     public ICollection<Referral> ReferralsReceived { get; set; } = [];
+
+    // Biometric authentication
+    [StringLength(64)]
+    public string? BiometricPin { get; set; }
+    public DateTime? BiometricPinExpiresAt { get; set; }
+    public bool BiometricEnabled { get; set; } = false;
 }

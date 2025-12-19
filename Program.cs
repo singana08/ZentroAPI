@@ -207,6 +207,7 @@ catch (Exception ex)
     WriteLog($"JWT service registration failed: {ex.Message}");
     // Register a fallback JWT service if needed
 }
+builder.Services.AddScoped<IBiometricService, BiometricService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 Console.WriteLine("CategoryService registered");
