@@ -24,6 +24,7 @@ public class CategoryWithSubcategoriesDto
     public string? Description { get; set; }
     public string? Icon { get; set; }
     public bool IsActive { get; set; }
+    public string ServiceType { get; set; } = "Free";
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     

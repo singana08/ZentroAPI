@@ -69,70 +69,7 @@ public class CategoryController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Retrieves a specific category with its active subcategories
-    /// </summary>
-    /// <remarks>
-    /// Returns a single category with all its active subcategories ordered by name.
-    /// </remarks>
-    /// <param name="categoryId">The ID of the category to retrieve</param>
-    /// <returns>Category with associated active subcategories</returns>
-    [HttpGet("{categoryId}/with-subcategories")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(CategoryWithSubcategoriesDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> GetCategoryWithSubcategories(int categoryId)
-    {
-        try
-        {
-            if (categoryId <= 0)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Message = "Category ID must be greater than 0"
-                });
-            }
 
-            _logger.LogInformation("Fetching category {CategoryId} with active subcategories", categoryId);
-
-            var category = await _categoryService.GetCategoryWithSubcategoriesAsync(categoryId);
-
-            if (category == null)
-            {
-                _logger.LogWarning("Category {CategoryId} not found", categoryId);
-                return NotFound(new ErrorResponse
-                {
-                    Message = $"Category with ID {categoryId} not found"
-                });
-            }
-
-            _logger.LogInformation("Successfully retrieved category {CategoryId} with {SubcategoryCount} subcategories", 
-                categoryId, category.Subcategories.Count);
-
-            return Ok(category);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving category {CategoryId} with subcategories", categoryId);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-            {
-                Message = "An error occurred while retrieving the category"
-            });
-        }
-    }
-
-    /// <summary>
-    /// Test endpoint to verify API connectivity
-    /// </summary>
-    /// <returns>Success message</returns>
-    [HttpGet("test")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    public IActionResult Test()
-    {
-        return Ok(new { success = true, message = "Category API is working successfully" });
-    }
 
     /// <summary>
     /// Import categories and subcategories from categories-data.json file

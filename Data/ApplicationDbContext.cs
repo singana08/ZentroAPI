@@ -143,6 +143,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.Icon).HasMaxLength(255);
+            entity.Property(e => e.ServiceType).HasMaxLength(20).HasDefaultValue("Free");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasIndex(e => e.IsActive);

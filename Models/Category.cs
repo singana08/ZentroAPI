@@ -19,6 +19,9 @@ public class Category
     [StringLength(255)]
     public string? Icon { get; set; }
 
+    [StringLength(20)]
+    public string ServiceType { get; set; } = "Free";
+
     public bool IsActive { get; set; } = true;
 
     [Required]

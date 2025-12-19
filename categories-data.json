@@ -1290,5 +1290,49 @@
         "isActive": true
       }
     ]
+  },
+  {
+    "name": "Donations & Charity",
+    "description": "Free donation services for community support",
+    "icon": "heart-outline",
+    "isActive": true,
+    "serviceType": "free",
+    "subcategories": [
+      {
+        "id": 1001,
+        "name": "Donate Blood",
+        "description": "Participate in blood donation drives",
+        "icon": "water-outline",
+        "isActive": true
+      },
+      {
+        "id": 1002,
+        "name": "Donate Money",
+        "description": "Contribute funds to charitable causes",
+        "icon": "cash-outline",
+        "isActive": true
+      },
+      {
+        "id": 1003,
+        "name": "Donate Food",
+        "description": "Provide meals to the needy",
+        "icon": "restaurant-outline",
+        "isActive": true
+      },
+      {
+        "id": 1004,
+        "name": "Donate Clothes",
+        "description": "Offer clothing to shelters and NGOs",
+        "icon": "shirt-outline",
+        "isActive": true
+      },
+      {
+        "id": 1005,
+        "name": "Organ Donation Awareness",
+        "description": "Promote awareness about organ donation",
+        "icon": "medkit-outline",
+        "isActive": true
+      }
+    ]
   }
 ]

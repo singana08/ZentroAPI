@@ -48,6 +48,7 @@ public class CategoryService : ICategoryService
                     Description = c.Description,
                     Icon = c.Icon,
                     IsActive = c.IsActive,
+                    ServiceType = c.ServiceType,
                     CreatedAt = c.CreatedAt,
                     UpdatedAt = c.UpdatedAt,
                     Subcategories = c.Subcategories
@@ -95,6 +96,7 @@ public class CategoryService : ICategoryService
                     Description = c.Description,
                     Icon = c.Icon,
                     IsActive = c.IsActive,
+                    ServiceType = c.ServiceType,
                     CreatedAt = c.CreatedAt,
                     UpdatedAt = c.UpdatedAt,
                     Subcategories = c.Subcategories
