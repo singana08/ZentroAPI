@@ -12,12 +12,14 @@ public class QuoteService : IQuoteService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<QuoteService> _logger;
     private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IPushNotificationService _pushNotificationService;
 
-    public QuoteService(ApplicationDbContext context, ILogger<QuoteService> logger, IHubContext<ChatHub> hubContext)
+    public QuoteService(ApplicationDbContext context, ILogger<QuoteService> logger, IHubContext<ChatHub> hubContext, IPushNotificationService pushNotificationService)
     {
         _context = context;
         _logger = logger;
         _hubContext = hubContext;
+        _pushNotificationService = pushNotificationService;
     }
 
     public async Task<(bool Success, string Message, QuoteResponseDto? Data)> CreateQuoteAsync(Guid providerId, CreateQuoteDto request)
@@ -103,6 +105,9 @@ public class QuoteService : IQuoteService
 
             await _hubContext.Clients.Group($"user_{serviceRequest.RequesterId}").SendAsync("ReceiveMessage", messageResponse);
             await _hubContext.Clients.Group($"request_{request.RequestId}").SendAsync("ReceiveMessage", messageResponse);
+
+            // Send push notification to requester
+            await _pushNotificationService.NotifyQuoteSubmittedAsync(request.RequestId, serviceRequest.RequesterId);
 
             var response = new QuoteResponseDto
             {

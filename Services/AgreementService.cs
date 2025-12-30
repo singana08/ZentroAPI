@@ -10,12 +10,14 @@ public class AgreementService : IAgreementService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AgreementService> _logger;
     private readonly INotificationService _notificationService;
+    private readonly IPushNotificationService _pushNotificationService;
 
-    public AgreementService(ApplicationDbContext context, ILogger<AgreementService> logger, INotificationService notificationService)
+    public AgreementService(ApplicationDbContext context, ILogger<AgreementService> logger, INotificationService notificationService, IPushNotificationService pushNotificationService)
     {
         _context = context;
         _logger = logger;
         _notificationService = notificationService;
+        _pushNotificationService = pushNotificationService;
     }
 
 
@@ -81,6 +83,9 @@ public class AgreementService : IAgreementService
                     
                     // Notify provider that requester accepted the quote
                     await _notificationService.NotifyOfQuoteAcceptanceAsync(request.QuoteId, profileId, true);
+                    
+                    // Send push notification to provider
+                    await _pushNotificationService.NotifyQuoteResponseAsync(request.QuoteId, providerId, true);
                 }
                 else
                 {
@@ -98,6 +103,9 @@ public class AgreementService : IAgreementService
                     
                     // Notify requester that provider accepted the quote
                     await _notificationService.NotifyOfQuoteAcceptanceAsync(request.QuoteId, profileId, false);
+                    
+                    // Send push notification to requester
+                    await _pushNotificationService.NotifyQuoteResponseAsync(request.QuoteId, requesterId, true);
                 }
             }
             else
@@ -141,6 +149,10 @@ public class AgreementService : IAgreementService
                 
                 agreement.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+                
+                // Send push notification about quote rejection
+                var rejectedUserId = isRequester ? providerId : requesterId;
+                await _pushNotificationService.NotifyQuoteResponseAsync(request.QuoteId, rejectedUserId, false);
                 
                 var rejectionResponse = new AgreementResponseDto
                 {
@@ -204,6 +216,9 @@ public class AgreementService : IAgreementService
                     MessageText = "🎉 Great! Both parties have agreed. The service is now confirmed. Let's get started!"
                 };
                 _context.Messages.Add(finalMessage);
+                
+                // Send push notification about work assignment
+                await _pushNotificationService.NotifyStatusChangeAsync(requestId, "assigned");
             }
 
             agreement.UpdatedAt = DateTime.UtcNow;

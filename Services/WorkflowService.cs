@@ -13,12 +13,14 @@ public class WorkflowService : IWorkflowService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<WorkflowService> _logger;
     private readonly IReferralService _referralService;
+    private readonly IPushNotificationService _pushNotificationService;
 
-    public WorkflowService(ApplicationDbContext context, ILogger<WorkflowService> logger, IReferralService referralService)
+    public WorkflowService(ApplicationDbContext context, ILogger<WorkflowService> logger, IReferralService referralService, IPushNotificationService pushNotificationService)
     {
         _context = context;
         _logger = logger;
         _referralService = referralService;
+        _pushNotificationService = pushNotificationService;
     }
 
     public async Task<(bool Success, string Message, WorkflowStatusResponseDto? Data)> UpdateWorkflowStatusAsync(
@@ -101,6 +103,12 @@ public class WorkflowService : IWorkflowService
             }
 
             await _context.SaveChangesAsync();
+
+            // Send push notification to requester about status change
+            if (serviceRequest != null)
+            {
+                await _pushNotificationService.NotifyStatusChangeAsync(requestId, status);
+            }
 
             // Process referral bonus if job is completed
             if (status.ToLower() == "completed" && serviceRequest != null)

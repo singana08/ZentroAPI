@@ -14,15 +14,18 @@ public class ServiceRequestService : IServiceRequestService
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<ServiceRequestService> _logger;
     private readonly INotificationService _notificationService;
+    private readonly IPushNotificationService _pushNotificationService;
 
     public ServiceRequestService(
         ApplicationDbContext dbContext,
         ILogger<ServiceRequestService> logger,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IPushNotificationService pushNotificationService)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _pushNotificationService = pushNotificationService;
     }
 
     /// <summary>
@@ -350,6 +353,9 @@ public class ServiceRequestService : IServiceRequestService
             if (serviceRequest.AssignedProviderId.HasValue)
             {
                 await _notificationService.NotifyProviderOfRequestUpdateAsync(serviceRequest.Id, "cancel");
+                
+                // Send push notification to assigned provider
+                await _pushNotificationService.NotifyStatusChangeAsync(serviceRequest.Id, "cancelled");
             }
 
             _logger.LogInformation($"Service request {requestId} cancelled by requester {userId}");
