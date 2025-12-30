@@ -32,6 +32,9 @@ public class Message
 
     public bool IsRead { get; set; } = false;
 
+    public bool IsDelivered { get; set; } = false;
+    public DateTime? DeliveredAt { get; set; }
+
     // Navigation property
     [ForeignKey(nameof(RequestId))]
     public ServiceRequest? ServiceRequest { get; set; }

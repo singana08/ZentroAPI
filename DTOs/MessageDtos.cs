@@ -18,6 +18,7 @@ public class MessageResponseDto
     public string MessageText { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
     public bool IsRead { get; set; }
+    public bool IsDelivered { get; set; }
     public string? SenderName { get; set; }
     public bool IsOwn { get; set; }
 }

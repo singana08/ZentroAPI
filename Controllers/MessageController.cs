@@ -175,4 +175,28 @@ public class MessageController : ControllerBase
             return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
         }
     }
+
+    /// <summary>
+    /// Mark a specific message as delivered
+    /// </summary>
+    [HttpPut("message/{messageId}/delivered")]
+    [Authorize]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> MarkMessageAsDelivered([FromRoute] Guid messageId)
+    {
+        try
+        {
+            var (success, message) = await _messageService.MarkMessageAsDeliveredAsync(messageId);
+            if (!success)
+                return BadRequest(new ErrorResponse { Message = message });
+
+            return Ok(new { Success = true, Message = message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking message as delivered");
+            return StatusCode(500, new ErrorResponse { Message = "Internal server error" });
+        }
+    }
 }

@@ -15,4 +15,5 @@ public interface IMessageService
     Task<(bool Success, string Message)> CompleteRequestAsync(Guid providerId, RequestActionDto request);
     Task<(bool Success, string Message, ChatListResponse? Data)> GetChatListAsync(Guid profileId);
     Task<(bool Success, string Message)> MarkMessagesAsReadAsync(Guid requestId, Guid profileId);
+    Task<(bool Success, string Message)> MarkMessageAsDeliveredAsync(Guid messageId);
 }

@@ -84,7 +84,8 @@ public class MessageService : IMessageService
                 QuoteId = message.QuoteId,
                 MessageText = message.MessageText,
                 Timestamp = message.Timestamp,
-                IsRead = message.IsRead
+                IsRead = message.IsRead,
+                IsDelivered = message.IsDelivered
             };
 
             // Send real-time notification via SignalR - broadcast to specific users
@@ -139,6 +140,7 @@ public class MessageService : IMessageService
                     MessageText = m.MessageText,
                     Timestamp = m.Timestamp,
                     IsRead = m.IsRead,
+                    IsDelivered = m.IsDelivered,
                     IsOwn = m.SenderId == profileId
                 })
                 .ToListAsync();
@@ -728,6 +730,14 @@ public class MessageService : IMessageService
             foreach (var message in messages)
             {
                 message.IsRead = true;
+                
+                // Notify sender that message was read
+                await _hubContext.Clients.Group(message.SenderId.ToString())
+                    .SendAsync("ReceiveMessageStatus", new { 
+                        messageId = message.Id, 
+                        status = "read", 
+                        requestId = message.RequestId 
+                    });
             }
 
             await _context.SaveChangesAsync();
@@ -737,6 +747,38 @@ public class MessageService : IMessageService
         {
             _logger.LogError(ex, "Error marking messages as read");
             return (false, "Failed to mark messages as read");
+        }
+    }
+
+    public async Task<(bool Success, string Message)> MarkMessageAsDeliveredAsync(Guid messageId)
+    {
+        try
+        {
+            var message = await _context.Messages.FindAsync(messageId);
+            if (message == null)
+                return (false, "Message not found");
+
+            if (!message.IsDelivered)
+            {
+                message.IsDelivered = true;
+                message.DeliveredAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Notify sender that message was delivered
+                await _hubContext.Clients.Group(message.SenderId.ToString())
+                    .SendAsync("ReceiveMessageStatus", new { 
+                        messageId = message.Id, 
+                        status = "delivered", 
+                        requestId = message.RequestId 
+                    });
+            }
+
+            return (true, "Message marked as delivered");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking message as delivered");
+            return (false, "Failed to mark message as delivered");
         }
     }
 }
