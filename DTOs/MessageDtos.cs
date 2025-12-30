@@ -2,8 +2,9 @@ namespace ZentroAPI.DTOs;
 
 public class SendMessageDto
 {
-    public Guid RequestId { get; set; }
-    public Guid? ReceiverId { get; set; }
+    public Guid? RequestId { get; set; }  // Optional - can derive from QuoteId
+    public Guid? QuoteId { get; set; }    // Primary - contains all context
+    public Guid? ReceiverId { get; set; } // Optional - can derive from Quote
     public string MessageText { get; set; } = string.Empty;
 }
 
@@ -13,6 +14,7 @@ public class MessageResponseDto
     public Guid SenderId { get; set; }
     public Guid ReceiverId { get; set; }
     public Guid RequestId { get; set; }
+    public Guid? QuoteId { get; set; }
     public string MessageText { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
     public bool IsRead { get; set; }

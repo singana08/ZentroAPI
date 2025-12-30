@@ -21,7 +21,8 @@ public class ChatHub : Hub
         var (profileId, _, _) = _tokenService.ExtractTokenInfo(Context.User!);
         if (profileId.HasValue)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{profileId.Value}");
+            // Add to user-specific group for direct messaging
+            await Groups.AddToGroupAsync(Context.ConnectionId, profileId.Value.ToString());
             _logger.LogInformation($"User {profileId.Value} connected to chat hub");
         }
         await base.OnConnectedAsync();
@@ -32,7 +33,7 @@ public class ChatHub : Hub
         var (profileId, _, _) = _tokenService.ExtractTokenInfo(Context.User!);
         if (profileId.HasValue)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{profileId.Value}");
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, profileId.Value.ToString());
             _logger.LogInformation($"User {profileId.Value} disconnected from chat hub");
         }
         await base.OnDisconnectedAsync(exception);

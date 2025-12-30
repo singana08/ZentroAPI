@@ -21,6 +21,8 @@ public class Message
     [Required]
     public Guid RequestId { get; set; }
 
+    public Guid? QuoteId { get; set; }
+
     [Required]
     [StringLength(2000)]
     public string MessageText { get; set; } = string.Empty;

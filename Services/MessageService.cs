@@ -24,62 +24,51 @@ public class MessageService : IMessageService
     {
         try
         {
-            // Verify service request exists
-            var serviceRequest = await _context.ServiceRequests.FindAsync(request.RequestId);
-            if (serviceRequest == null)
-                return (false, "Service request not found", null);
-
-            // Auto-detect receiver if not provided
+            Guid requestId;
             Guid receiverId;
-            if (request.ReceiverId.HasValue)
+
+            // If QuoteId is provided, derive context from quote
+            if (request.QuoteId.HasValue)
             {
-                receiverId = request.ReceiverId.Value;
+                var quote = await _context.Quotes
+                    .Include(q => q.ServiceRequest)
+                    .FirstOrDefaultAsync(q => q.Id == request.QuoteId.Value);
+                
+                if (quote == null)
+                    return (false, "Quote not found", null);
+
+                requestId = quote.RequestId;
+                // If sender is provider (quote owner), receiver is requester
+                // If sender is requester, receiver is provider
+                receiverId = senderId == quote.ProviderId 
+                    ? quote.ServiceRequest!.RequesterId 
+                    : quote.ProviderId;
+            }
+            else if (request.RequestId.HasValue)
+            {
+                // Fallback to old RequestId-based logic
+                var serviceRequest = await _context.ServiceRequests.FindAsync(request.RequestId.Value);
+                if (serviceRequest == null)
+                    return (false, "Service request not found", null);
+
+                requestId = request.RequestId.Value;
+                receiverId = request.ReceiverId ?? 
+                    (serviceRequest.RequesterId == senderId ? serviceRequest.AssignedProviderId ?? Guid.Empty : serviceRequest.RequesterId);
             }
             else
             {
-                // If sender is requester, find the other person from existing messages
-                // If sender is provider, receiver is requester
-                if (serviceRequest.RequesterId == senderId)
-                {
-                    // For requesters: find the other person from existing messages in this conversation
-                    var lastMessage = await _context.Messages
-                        .Where(m => m.RequestId == request.RequestId && m.SenderId != senderId)
-                        .OrderByDescending(m => m.Timestamp)
-                        .FirstOrDefaultAsync();
-                    
-                    if (lastMessage != null)
-                    {
-                        receiverId = lastMessage.SenderId;
-                    }
-                    else
-                    {
-                        // Fallback to assigned provider if no messages exist
-                        receiverId = serviceRequest.AssignedProviderId ?? Guid.Empty;
-                        if (receiverId == Guid.Empty)
-                            return (false, "No provider to send message to", null);
-                    }
-                }
-                else
-                {
-                    receiverId = serviceRequest.RequesterId;
-                }
+                return (false, "Either QuoteId or RequestId must be provided", null);
             }
 
-            // Verify sender has access to this request
-            var isRequester = serviceRequest.RequesterId == senderId;
-            var isAssignedProvider = serviceRequest.AssignedProviderId == senderId;
-            var isProvider = await _context.Providers.AnyAsync(p => p.Id == senderId);
-            var isOpenForNegotiation = serviceRequest.Status == ServiceRequestStatus.Open || serviceRequest.Status == ServiceRequestStatus.Reopened;
-            
-            bool hasAccess = isRequester || isAssignedProvider || (isProvider && isOpenForNegotiation);
-            if (!hasAccess)
-                return (false, "Access denied", null);
+            if (receiverId == Guid.Empty)
+                return (false, "Unable to determine message receiver", null);
 
             var message = new Message
             {
                 SenderId = senderId,
                 ReceiverId = receiverId,
-                RequestId = request.RequestId,
+                RequestId = requestId,
+                QuoteId = request.QuoteId,
                 MessageText = request.MessageText
             };
 
@@ -92,14 +81,15 @@ public class MessageService : IMessageService
                 SenderId = message.SenderId,
                 ReceiverId = message.ReceiverId,
                 RequestId = message.RequestId,
+                QuoteId = message.QuoteId,
                 MessageText = message.MessageText,
                 Timestamp = message.Timestamp,
                 IsRead = message.IsRead
             };
 
-            // Send real-time notification via SignalR
-            await _hubContext.Clients.Group($"user_{receiverId}").SendAsync("ReceiveMessage", response);
-            await _hubContext.Clients.Group($"request_{request.RequestId}").SendAsync("ReceiveMessage", response);
+            // Send real-time notification via SignalR - broadcast to specific users
+            await _hubContext.Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", response);
+            await _hubContext.Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", response);
 
             return (true, "Message sent successfully", response);
         }
@@ -145,6 +135,7 @@ public class MessageService : IMessageService
                     SenderId = m.SenderId,
                     ReceiverId = m.ReceiverId,
                     RequestId = m.RequestId,
+                    QuoteId = m.QuoteId,
                     MessageText = m.MessageText,
                     Timestamp = m.Timestamp,
                     IsRead = m.IsRead,
