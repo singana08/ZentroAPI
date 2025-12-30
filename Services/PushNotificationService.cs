@@ -367,9 +367,10 @@ public class PushNotificationService : IPushNotificationService
             "New Service Request",
             $"New {request.MainCategory} request in your area",
             new Dictionary<string, object> { 
-                { "requestId", requestId.ToString() }, 
                 { "type", "new_request" },
-                { "screen", "RequestDetails" }
+                { "requestId", requestId.ToString() },
+                { "screen", "AllRequests" },
+                { "params", new Dictionary<string, object>() }
             }
         );
     }
@@ -384,21 +385,30 @@ public class PushNotificationService : IPushNotificationService
             "New Quote Received",
             $"You received a new quote for your {request.MainCategory} request",
             new Dictionary<string, object> { 
-                { "requestId", requestId.ToString() }, 
-                { "type", "quote_received" },
-                { "screen", "QuoteDetails" }
+                { "type", "new_quote" },
+                { "requestId", requestId.ToString() },
+                { "screen", "RequestDetails" },
+                { "params", new Dictionary<string, object>() }
             }
         );
     }
 
     public async Task NotifyQuoteResponseAsync(Guid quoteId, Guid providerId, bool isAccepted)
     {
+        var quote = await _context.Quotes.FindAsync(quoteId);
+        if (quote == null) return;
+
         var status = isAccepted ? "accepted" : "rejected";
         await SendPushNotificationAsync(
             providerId,
             $"Quote {status.ToUpper()}",
             $"Your quote has been {status}",
-            new Dictionary<string, object> { { "quoteId", quoteId.ToString() }, { "type", "quote_response" } }
+            new Dictionary<string, object> { 
+                { "type", "status_update" },
+                { "requestId", quote.RequestId.ToString() },
+                { "screen", "RequestDetails" },
+                { "params", new Dictionary<string, object>() }
+            }
         );
     }
 
@@ -414,7 +424,12 @@ public class PushNotificationService : IPushNotificationService
             request.Requester.UserId,
             "Service Status Update",
             $"Your service request status changed to {newStatus}",
-            new Dictionary<string, object> { { "requestId", requestId.ToString() }, { "type", "status_update" } }
+            new Dictionary<string, object> { 
+                { "type", "status_update" },
+                { "requestId", requestId.ToString() },
+                { "screen", "RequestDetails" },
+                { "params", new Dictionary<string, object>() }
+            }
         );
     }
 
@@ -425,9 +440,10 @@ public class PushNotificationService : IPushNotificationService
             "New Message",
             $"New message from {senderName}",
             new Dictionary<string, object> { 
-                { "conversationId", conversationId.ToString() }, 
                 { "type", "new_message" },
-                { "screen", "Chat" }
+                { "requestId", conversationId.ToString() },
+                { "screen", "Chat" },
+                { "params", new Dictionary<string, object>() }
             }
         );
     }
@@ -438,7 +454,12 @@ public class PushNotificationService : IPushNotificationService
             providerId,
             "Payment Received",
             $"You received a payment of ₹{amount:F2}",
-            new Dictionary<string, object> { { "paymentId", paymentId.ToString() }, { "type", "payment_received" } }
+            new Dictionary<string, object> { 
+                { "type", "payment_received" },
+                { "requestId", paymentId.ToString() },
+                { "screen", "Wallet" },
+                { "params", new Dictionary<string, object>() }
+            }
         );
     }
 }
