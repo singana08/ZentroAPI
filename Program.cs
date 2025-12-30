@@ -227,6 +227,7 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 builder.Services.AddScoped<IStripePaymentService, StripePaymentService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IRealTimeNotificationService, RealTimeNotificationService>();
+builder.Services.AddScoped<IMobileRealTimeService, MobileRealTimeService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IProviderMatchingService, ProviderMatchingService>();
 builder.Services.AddScoped<IProviderService, ProviderService>();
@@ -498,8 +499,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Map SignalR hub
+// Map SignalR hubs
 app.MapHub<ZentroAPI.Hubs.ChatHub>("/chathub");
+app.MapHub<ZentroAPI.Hubs.NotificationHub>("/notificationhub");
 
 // Map health check endpoints
 app.MapGet("/api/health/ping", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
