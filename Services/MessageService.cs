@@ -88,8 +88,8 @@ public class MessageService : IMessageService
             };
 
             // Send real-time notification via SignalR - broadcast to specific users
-            await _hubContext.Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", response);
-            await _hubContext.Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", response);
+            await _hubContext.Clients.Group(receiverId.ToString()).SendAsync("ReceiveMessage", response);
+            await _hubContext.Clients.Group(senderId.ToString()).SendAsync("ReceiveMessage", response);
 
             return (true, "Message sent successfully", response);
         }
